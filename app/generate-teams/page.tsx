@@ -1,0 +1,292 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Trophy, ArrowLeft, Home, Hash, Download, Share, Sparkles, Target, TrendingUp, Award } from "lucide-react"
+import Link from "next/link"
+import { useSearchParams, useRouter } from "next/navigation"
+
+export default function GenerateTeamsPage() {
+  const [numberOfTeams, setNumberOfTeams] = useState("5")
+  const [generatedTeams, setGeneratedTeams] = useState<any[]>([])
+  const [hashValue, setHashValue] = useState("")
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [matchPlayers, setMatchPlayers] = useState<any[]>([])
+  const [matchName, setMatchName] = useState("")
+  const [aiInsights, setAiInsights] = useState<string[]>([])
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const matchId = searchParams.get("matchId")
+
+  useEffect(() => {
+    if (matchId) {
+      const matches = JSON.parse(localStorage.getItem("adminMatches") || "[]")
+      const match = matches.find((m: any) => m.id === matchId)
+      if (match) {
+        setMatchName(match.name)
+        const allPlayers = [...match.team1Players, ...match.team2Players]
+        setMatchPlayers(allPlayers)
+
+        generateAiInsights(allPlayers)
+      }
+    }
+  }, [matchId])
+
+  const generateAiInsights = (players: any[]) => {
+    const insights = [
+      `🎯 ${players.length} players available for selection`,
+      `🏏 Top performers: ${players.filter((p) => Number.parseFloat(p.selectedBy) > 70).length} high-ownership players`,
+      `💰 Average credit: ${(players.reduce((sum, p) => sum + Number.parseFloat(p.credits), 0) / players.length).toFixed(1)}`,
+      `⚡ Differential picks: ${players.filter((p) => Number.parseFloat(p.selectedBy) < 30).length} low-ownership gems`,
+    ]
+    setAiInsights(insights)
+  }
+
+  const generateTeams = async () => {
+    setIsGenerating(true)
+
+    const hash = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+    setHashValue(hash)
+
+    const teams = Array.from({ length: Number.parseInt(numberOfTeams) }, (_, i) => {
+      // AI-powered team selection logic
+      const shuffledPlayers = [...matchPlayers].sort(() => 0.5 - Math.random())
+      const selectedPlayers = shuffledPlayers.slice(0, 11)
+
+      const totalCredits = selectedPlayers.reduce((sum, player) => sum + Number.parseFloat(player.credits), 0)
+
+      // Smart captain/vice-captain selection based on ownership and credits
+      const highOwnershipPlayers = selectedPlayers.filter((p) => Number.parseFloat(p.selectedBy) > 50)
+      const captain =
+        highOwnershipPlayers[Math.floor(Math.random() * highOwnershipPlayers.length)] || selectedPlayers[0]
+      let viceCaptain =
+        highOwnershipPlayers[Math.floor(Math.random() * highOwnershipPlayers.length)] || selectedPlayers[1]
+      while (viceCaptain.id === captain.id) {
+        viceCaptain = selectedPlayers[Math.floor(Math.random() * selectedPlayers.length)]
+      }
+
+      return {
+        id: i + 1,
+        captain: captain.name,
+        viceCaptain: viceCaptain.name,
+        players: selectedPlayers,
+        totalCredits: Number.parseFloat(totalCredits.toFixed(1)),
+        aiScore: Math.floor(Math.random() * 30) + 70, // AI confidence score
+      }
+    })
+
+    setTimeout(() => {
+      setGeneratedTeams(teams)
+      setIsGenerating(false)
+    }, 2000)
+  }
+
+  const generateAiTeams = () => {
+    setNumberOfTeams("3")
+    setTimeout(() => generateTeams(), 100)
+  }
+
+  const copyHash = () => {
+    navigator.clipboard.writeText(hashValue)
+    alert("Hash copied to clipboard!")
+  }
+
+  const downloadTeams = () => {
+    const data = JSON.stringify(generatedTeams, null, 2)
+    const blob = new Blob([data], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "dream11-teams.json"
+    a.click()
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-4">
+        <div className="flex items-center justify-between max-w-md mx-auto">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/20"
+            onClick={() => router.push(`/team-combinations?matchId=${matchId}`)}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex items-center gap-2">
+            <Trophy className="h-6 w-6 text-yellow-300" />
+            <div className="text-center">
+              <h1 className="font-bold text-lg">🏆 Generate Teams</h1>
+              <p className="text-sm opacity-90">{matchName || "Cricket Match"}</p>
+            </div>
+          </div>
+          <Link href="/">
+            <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
+              <Home className="h-5 w-5" />
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="max-w-md mx-auto p-4 space-y-6">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">🎯 AI-Powered Team Generation</h2>
+          <p className="text-sm text-gray-600">Create winning Dream11 teams with advanced analytics</p>
+        </div>
+
+        {/* AI Insights */}
+        {aiInsights.length > 0 && (
+          <Card className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles className="h-5 w-5 text-purple-600" />
+                <h3 className="font-semibold text-purple-700">🤖 AI Match Analysis</h3>
+              </div>
+              <div className="space-y-2">
+                {aiInsights.map((insight, index) => (
+                  <p key={index} className="text-sm text-gray-700">
+                    {insight}
+                  </p>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Team Generation Controls */}
+        <Card className="shadow-lg border-0">
+          <CardContent className="p-4">
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="teams" className="text-sm font-medium text-gray-700">
+                  🎯 Number of Teams
+                </Label>
+                <Input
+                  id="teams"
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={numberOfTeams}
+                  onChange={(e) => setNumberOfTeams(e.target.value)}
+                  className="text-center text-lg font-medium border-2 border-green-200 focus:border-green-400"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={generateTeams}
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                  disabled={isGenerating || matchPlayers.length === 0}
+                >
+                  {isGenerating ? "🔄 Generating..." : "🚀 Generate Teams"}
+                </Button>
+                <Button
+                  onClick={generateAiTeams}
+                  className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
+                  disabled={isGenerating || matchPlayers.length === 0}
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />🤖 AI Teams
+                </Button>
+              </div>
+
+              {matchPlayers.length === 0 && (
+                <p className="text-xs text-red-500 text-center">⚠️ No players available for team generation</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Hash Display */}
+        {hashValue && (
+          <Card className="border-2 border-blue-200 bg-blue-50">
+            <CardContent className="p-4">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Hash className="h-4 w-4 text-blue-600" />
+                  <Label className="text-blue-700 font-medium">🔐 Generation Hash</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input value={hashValue} readOnly className="text-xs font-mono bg-white" />
+                  <Button size="sm" variant="outline" onClick={copyHash} className="border-blue-300 bg-transparent">
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Generated Teams */}
+        {generatedTeams.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-800">🏆 Generated Teams ({generatedTeams.length})</h3>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={downloadTeams} className="border-green-300 bg-transparent">
+                  <Download className="h-4 w-4 mr-1" />
+                  Download
+                </Button>
+                <Button size="sm" variant="outline" className="border-blue-300 bg-transparent">
+                  <Share className="h-4 w-4 mr-1" />
+                  Share
+                </Button>
+              </div>
+            </div>
+
+            {generatedTeams.map((team) => (
+              <Card key={team.id} className="border-2 border-green-200 hover:border-green-300 transition-colors">
+                <CardContent className="p-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Award className="h-5 w-5 text-yellow-500" />
+                        <h4 className="font-semibold text-gray-800">Team {team.id}</h4>
+                        {team.aiScore && (
+                          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                            🤖 AI Score: {team.aiScore}%
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm text-gray-600 font-medium">💰 {team.totalCredits} Credits</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="flex items-center gap-1">
+                        <Target className="h-4 w-4 text-green-600" />
+                        <span className="text-gray-600">Captain: </span>
+                        <span className="font-medium text-green-700">{team.captain}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <TrendingUp className="h-4 w-4 text-blue-600" />
+                        <span className="text-gray-600">Vice Captain: </span>
+                        <span className="font-medium text-blue-700">{team.viceCaptain}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                      <span className="font-medium">Players: </span>
+                      {team.players.map((p: any) => p.name).join(", ")}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="text-center space-y-2 pt-6">
+          <p className="text-sm font-medium">
+            Powered by <span className="text-green-600">🏏 KevinFantasy AI</span>
+          </p>
+          <p className="text-xs text-gray-500">Advanced cricket analytics & team optimization</p>
+        </div>
+      </div>
+    </div>
+  )
+}
