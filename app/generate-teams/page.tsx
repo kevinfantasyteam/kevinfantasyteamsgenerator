@@ -17,6 +17,9 @@ export default function GenerateTeamsPage() {
   const [matchPlayers, setMatchPlayers] = useState<any[]>([])
   const [matchName, setMatchName] = useState("")
   const [aiInsights, setAiInsights] = useState<string[]>([])
+  const [captainOptions, setCaptainOptions] = useState<string[]>([])
+  const [viceCaptainOptions, setViceCaptainOptions] = useState<string[]>([])
+  const [fixedPlayers, setFixedPlayers] = useState<string[]>([])
   const searchParams = useSearchParams()
   const router = useRouter()
   const matchId = searchParams.get("matchId")
@@ -30,17 +33,26 @@ export default function GenerateTeamsPage() {
         const allPlayers = [...match.team1Players, ...match.team2Players]
         setMatchPlayers(allPlayers)
 
-        generateAiInsights(allPlayers)
+        const captainOpts = JSON.parse(localStorage.getItem("captainOptions") || "[]")
+        const viceCaptainOpts = JSON.parse(localStorage.getItem("viceCaptainOptions") || "[]")
+        const fixedPlayerIds = JSON.parse(localStorage.getItem("fixedPlayers") || "[]")
+
+        setCaptainOptions(captainOpts)
+        setViceCaptainOptions(viceCaptainOpts)
+        setFixedPlayers(fixedPlayerIds)
+
+        generateAiInsights(allPlayers, captainOpts, viceCaptainOpts, fixedPlayerIds)
       }
     }
   }, [matchId])
 
-  const generateAiInsights = (players: any[]) => {
+  const generateAiInsights = (players: any[], captains: string[], viceCaptains: string[], fixed: string[]) => {
     const insights = [
       `🎯 ${players.length} players available for selection`,
-      `🏏 Top performers: ${players.filter((p) => Number.parseFloat(p.selectedBy) > 70).length} high-ownership players`,
+      `👑 ${captains.length} captain options selected`,
+      `⭐ ${viceCaptains.length} vice captain options selected`,
+      `🔒 ${fixed.length} fixed players in every team`,
       `💰 Average credit: ${(players.reduce((sum, p) => sum + Number.parseFloat(p.credits), 0) / players.length).toFixed(1)}`,
-      `⚡ Differential picks: ${players.filter((p) => Number.parseFloat(p.selectedBy) < 30).length} low-ownership gems`,
     ]
     setAiInsights(insights)
   }
@@ -52,20 +64,39 @@ export default function GenerateTeamsPage() {
     setHashValue(hash)
 
     const teams = Array.from({ length: Number.parseInt(numberOfTeams) }, (_, i) => {
-      // AI-powered team selection logic
-      const shuffledPlayers = [...matchPlayers].sort(() => 0.5 - Math.random())
-      const selectedPlayers = shuffledPlayers.slice(0, 11)
+      const fixedPlayerObjects = matchPlayers.filter((p) => fixedPlayers.includes(p.id))
+      const remainingPlayers = matchPlayers.filter((p) => !fixedPlayers.includes(p.id))
+
+      // Shuffle remaining players and select to complete team of 11
+      const shuffledRemaining = [...remainingPlayers].sort(() => 0.5 - Math.random())
+      const additionalPlayers = shuffledRemaining.slice(0, 11 - fixedPlayerObjects.length)
+
+      const selectedPlayers = [...fixedPlayerObjects, ...additionalPlayers]
 
       const totalCredits = selectedPlayers.reduce((sum, player) => sum + Number.parseFloat(player.credits), 0)
 
-      // Smart captain/vice-captain selection based on ownership and credits
-      const highOwnershipPlayers = selectedPlayers.filter((p) => Number.parseFloat(p.selectedBy) > 50)
+      const captainCandidates = selectedPlayers.filter((p) => captainOptions.includes(p.id))
+      const viceCaptainCandidates = selectedPlayers.filter((p) => viceCaptainOptions.includes(p.id))
+
       const captain =
-        highOwnershipPlayers[Math.floor(Math.random() * highOwnershipPlayers.length)] || selectedPlayers[0]
+        captainCandidates.length > 0
+          ? captainCandidates[Math.floor(Math.random() * captainCandidates.length)]
+          : selectedPlayers[0]
+
       let viceCaptain =
-        highOwnershipPlayers[Math.floor(Math.random() * highOwnershipPlayers.length)] || selectedPlayers[1]
-      while (viceCaptain.id === captain.id) {
-        viceCaptain = selectedPlayers[Math.floor(Math.random() * selectedPlayers.length)]
+        viceCaptainCandidates.length > 0
+          ? viceCaptainCandidates[Math.floor(Math.random() * viceCaptainCandidates.length)]
+          : selectedPlayers[1]
+
+      // Ensure vice captain is different from captain
+      while (viceCaptain.id === captain.id && selectedPlayers.length > 1) {
+        const availableVC = viceCaptainCandidates.filter((p) => p.id !== captain.id)
+        if (availableVC.length > 0) {
+          viceCaptain = availableVC[Math.floor(Math.random() * availableVC.length)]
+        } else {
+          viceCaptain = selectedPlayers.find((p) => p.id !== captain.id) || selectedPlayers[1]
+        }
+        break
       }
 
       return {
@@ -74,7 +105,8 @@ export default function GenerateTeamsPage() {
         viceCaptain: viceCaptain.name,
         players: selectedPlayers,
         totalCredits: Number.parseFloat(totalCredits.toFixed(1)),
-        aiScore: Math.floor(Math.random() * 30) + 70, // AI confidence score
+        aiScore: Math.floor(Math.random() * 30) + 70,
+        fixedCount: fixedPlayerObjects.length, // Show how many fixed players
       }
     })
 
@@ -251,6 +283,11 @@ export default function GenerateTeamsPage() {
                             🤖 AI Score: {team.aiScore}%
                           </span>
                         )}
+                        {team.fixedCount > 0 && (
+                          <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full">
+                            🔒 {team.fixedCount} Fixed
+                          </span>
+                        )}
                       </div>
                       <span className="text-sm text-gray-600 font-medium">💰 {team.totalCredits} Credits</span>
                     </div>
@@ -259,12 +296,12 @@ export default function GenerateTeamsPage() {
                       <div className="flex items-center gap-1">
                         <Target className="h-4 w-4 text-green-600" />
                         <span className="text-gray-600">Captain: </span>
-                        <span className="font-medium text-green-700">{team.captain}</span>
+                        <span className="font-medium text-green-700">{team.captain} (C)</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <TrendingUp className="h-4 w-4 text-blue-600" />
                         <span className="text-gray-600">Vice Captain: </span>
-                        <span className="font-medium text-blue-700">{team.viceCaptain}</span>
+                        <span className="font-medium text-blue-700">{team.viceCaptain} (VC)</span>
                       </div>
                     </div>
 

@@ -112,13 +112,33 @@ export default function PlayerSelectionPage() {
   }
 
   const handleContinue = () => {
+    const selectionData = {
+      matchId,
+      captainOptions:
+        currentSection === "captain" ? selectedPlayers : JSON.parse(localStorage.getItem("captainOptions") || "[]"),
+      viceCaptainOptions:
+        currentSection === "vice-captain"
+          ? selectedPlayers
+          : JSON.parse(localStorage.getItem("viceCaptainOptions") || "[]"),
+      fixedPlayers:
+        currentSection === "fixed" ? selectedPlayers : JSON.parse(localStorage.getItem("fixedPlayers") || "[]"),
+    }
+
     if (currentSection === "captain") {
+      localStorage.setItem("captainOptions", JSON.stringify(selectedPlayers))
+      setSelectedPlayers([]) // Reset for next section
       setCurrentSection("vice-captain")
     } else if (currentSection === "vice-captain") {
+      localStorage.setItem("viceCaptainOptions", JSON.stringify(selectedPlayers))
+      setSelectedPlayers([]) // Reset for next section
       setCurrentSection("fixed")
     } else if (currentSection === "fixed") {
+      localStorage.setItem("fixedPlayers", JSON.stringify(selectedPlayers))
+      setSelectedPlayers([]) // Reset for next section
       setCurrentSection("team-partition")
     } else {
+      // Store all selection data before moving to next page
+      localStorage.setItem("playerSelections", JSON.stringify(selectionData))
       window.location.href = `/player-percentage?matchId=${matchId}`
     }
   }
