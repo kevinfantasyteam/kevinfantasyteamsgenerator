@@ -67,7 +67,6 @@ export default function GenerateTeamsPage() {
       const fixedPlayerObjects = matchPlayers.filter((p) => fixedPlayers.includes(p.id))
       const remainingPlayers = matchPlayers.filter((p) => !fixedPlayers.includes(p.id))
 
-      // Shuffle remaining players and select to complete team of 11
       const shuffledRemaining = [...remainingPlayers].sort(() => 0.5 - Math.random())
       const additionalPlayers = shuffledRemaining.slice(0, 11 - fixedPlayerObjects.length)
 
@@ -88,7 +87,6 @@ export default function GenerateTeamsPage() {
           ? viceCaptainCandidates[Math.floor(Math.random() * viceCaptainCandidates.length)]
           : selectedPlayers[1]
 
-      // Ensure vice captain is different from captain
       while (viceCaptain.id === captain.id && selectedPlayers.length > 1) {
         const availableVC = viceCaptainCandidates.filter((p) => p.id !== captain.id)
         if (availableVC.length > 0) {
@@ -106,7 +104,7 @@ export default function GenerateTeamsPage() {
         players: selectedPlayers,
         totalCredits: Number.parseFloat(totalCredits.toFixed(1)),
         aiScore: Math.floor(Math.random() * 30) + 70,
-        fixedCount: fixedPlayerObjects.length, // Show how many fixed players
+        fixedCount: fixedPlayerObjects.length,
       }
     })
 
@@ -138,7 +136,6 @@ export default function GenerateTeamsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-      {/* Header */}
       <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-4">
         <div className="flex items-center justify-between max-w-md mx-auto">
           <Button
@@ -164,14 +161,12 @@ export default function GenerateTeamsPage() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-md mx-auto p-4 space-y-6">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-gray-800 mb-2">🎯 AI-Powered Team Generation</h2>
           <p className="text-sm text-gray-600">Create winning Dream11 teams with advanced analytics</p>
         </div>
 
-        {/* AI Insights */}
         {aiInsights.length > 0 && (
           <Card className="border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
             <CardContent className="p-4">
@@ -190,7 +185,6 @@ export default function GenerateTeamsPage() {
           </Card>
         )}
 
-        {/* Team Generation Controls */}
         <Card className="shadow-lg border-0">
           <CardContent className="p-4">
             <div className="space-y-4">
@@ -233,7 +227,6 @@ export default function GenerateTeamsPage() {
           </CardContent>
         </Card>
 
-        {/* Hash Display */}
         {hashValue && (
           <Card className="border-2 border-blue-200 bg-blue-50">
             <CardContent className="p-4">
@@ -253,7 +246,6 @@ export default function GenerateTeamsPage() {
           </Card>
         )}
 
-        {/* Generated Teams */}
         {generatedTeams.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -316,7 +308,6 @@ export default function GenerateTeamsPage() {
           </div>
         )}
 
-        {/* Footer */}
         <div className="text-center space-y-2 pt-6">
           <p className="text-sm font-medium">
             Powered by <span className="text-green-600">🏏 KevinFantasy AI</span>
