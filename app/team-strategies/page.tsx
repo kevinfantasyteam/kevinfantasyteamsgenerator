@@ -20,7 +20,7 @@ interface TeamCombination {
   wk: number
   bat: number
   al: number
-  bowl: number
+  bow: number
 }
 
 const playerPercentagePatterns: PlayerPercentagePattern[] = [
@@ -32,16 +32,16 @@ const playerPercentagePatterns: PlayerPercentagePattern[] = [
 ]
 
 const teamCombinations: TeamCombination[] = [
-  { id: "1", wk: 1, bat: 3, al: 2, bowl: 5 },
-  { id: "2", wk: 1, bat: 3, al: 3, bowl: 4 },
-  { id: "3", wk: 1, bat: 4, al: 3, bowl: 3 },
-  { id: "4", wk: 1, bat: 4, al: 2, bowl: 4 },
-  { id: "5", wk: 1, bat: 5, al: 2, bowl: 3 },
-  { id: "6", wk: 1, bat: 3, al: 4, bowl: 3 },
-  { id: "7", wk: 2, bat: 3, al: 3, bowl: 3 },
-  { id: "8", wk: 2, bat: 3, al: 2, bowl: 4 },
-  { id: "9", wk: 2, bat: 4, al: 2, bowl: 3 },
-  { id: "10", wk: 3, bat: 3, al: 2, bowl: 3 },
+  { id: "1", wk: 1, bat: 3, al: 2, bow: 5 },
+  { id: "2", wk: 1, bat: 3, al: 3, bow: 4 },
+  { id: "3", wk: 1, bat: 4, al: 3, bow: 3 },
+  { id: "4", wk: 1, bat: 4, al: 2, bow: 4 },
+  { id: "5", wk: 1, bat: 5, al: 2, bow: 3 },
+  { id: "6", wk: 1, bat: 3, al: 4, bow: 3 },
+  { id: "7", wk: 2, bat: 3, al: 3, bow: 3 },
+  { id: "8", wk: 2, bat: 3, al: 2, bow: 4 },
+  { id: "9", wk: 2, bat: 4, al: 2, bow: 3 },
+  { id: "10", wk: 3, bat: 3, al: 2, bow: 3 },
 ]
 
 export default function TeamStrategiesPage() {
@@ -241,8 +241,8 @@ export default function TeamStrategiesPage() {
                     <div className="text-lg font-bold">{combination.al}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-xs text-muted-foreground mb-1">BOWL</div>
-                    <div className="text-lg font-bold">{combination.bowl}</div>
+                    <div className="text-xs text-muted-foreground mb-1">BOW</div>
+                    <div className="text-lg font-bold">{combination.bow}</div>
                   </div>
                 </div>
                 <Button

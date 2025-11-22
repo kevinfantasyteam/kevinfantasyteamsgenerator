@@ -12,7 +12,7 @@ interface SelectedTeam {
   wk: number
   bat: number
   al: number
-  bowl: number
+  bow: number
 }
 
 export default function TeamManagementPage() {
@@ -23,7 +23,7 @@ export default function TeamManagementPage() {
     mockPlayers[5], // T Brits (BAT)
   ])
 
-  const [currentTab, setCurrentTab] = useState<"WK" | "BAT" | "AL" | "BOWL">("WK")
+  const [currentTab, setCurrentTab] = useState<"WK" | "BAT" | "AL" | "BOW">("WK")
   const [timeLeft, setTimeLeft] = useState("23m 22s left")
 
   const handleContinue = () => {
@@ -42,8 +42,8 @@ export default function TeamManagementPage() {
     const wk = getPlayersByPosition("WK").length
     const bat = getPlayersByPosition("BAT").length
     const al = getPlayersByPosition("AL").length
-    const bowl = getPlayersByPosition("BOWL").length
-    return { wk, bat, al, bowl }
+    const bow = getPlayersByPosition("BOW").length
+    return { wk, bat, al, bow }
   }
 
   const teamCounts = getTeamCounts()
@@ -121,7 +121,7 @@ export default function TeamManagementPage() {
       {/* Position Tabs */}
       <div className="bg-primary text-primary-foreground p-2">
         <div className="max-w-md mx-auto flex gap-1">
-          {["WK", "BAT", "AL", "BOWL"].map((position) => (
+          {["WK", "BAT", "AL", "BOW"].map((position) => (
             <Button
               key={position}
               variant={currentTab === position ? "secondary" : "ghost"}

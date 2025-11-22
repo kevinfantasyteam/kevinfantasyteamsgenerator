@@ -14,27 +14,27 @@ interface Combination {
   wk: number
   bat: number
   al: number
-  bowl: number
+  bow: number
 }
 
 const combinations: Combination[] = [
-  { id: 1, wk: 1, bat: 3, al: 2, bowl: 5 },
-  { id: 2, wk: 1, bat: 3, al: 3, bowl: 4 },
-  { id: 3, wk: 1, bat: 4, al: 3, bowl: 3 },
-  { id: 4, wk: 1, bat: 4, al: 2, bowl: 4 },
-  { id: 5, wk: 1, bat: 5, al: 2, bowl: 3 },
-  { id: 6, wk: 1, bat: 3, al: 4, bowl: 3 },
-  { id: 7, wk: 2, bat: 3, al: 3, bowl: 3 },
-  { id: 8, wk: 2, bat: 3, al: 2, bowl: 4 },
-  { id: 9, wk: 2, bat: 4, al: 2, bowl: 3 },
-  { id: 10, wk: 3, bat: 3, al: 2, bowl: 3 },
+  { id: 1, wk: 1, bat: 3, al: 2, bow: 5 },
+  { id: 2, wk: 1, bat: 3, al: 3, bow: 4 },
+  { id: 3, wk: 1, bat: 4, al: 3, bow: 3 },
+  { id: 4, wk: 1, bat: 4, al: 2, bow: 4 },
+  { id: 5, wk: 1, bat: 5, al: 2, bow: 3 },
+  { id: 6, wk: 1, bat: 3, al: 4, bow: 3 },
+  { id: 7, wk: 2, bat: 3, al: 3, bow: 3 },
+  { id: 8, wk: 2, bat: 3, al: 2, bow: 4 },
+  { id: 9, wk: 2, bat: 4, al: 2, bow: 3 },
+  { id: 10, wk: 3, bat: 3, al: 2, bow: 3 },
 ]
 
 export default function TeamCombinationsPage() {
   const [selectedCombinations, setSelectedCombinations] = useState<number[]>([])
   const [currentTab, setCurrentTab] = useState<"old" | "new">("old")
   const [showCustom, setShowCustom] = useState(false)
-  const [customCombination, setCustomCombination] = useState({ wk: 1, bat: 3, al: 2, bowl: 5 })
+  const [customCombination, setCustomCombination] = useState({ wk: 1, bat: 3, al: 2, bow: 5 })
   const [matchName, setMatchName] = useState("")
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -189,9 +189,9 @@ export default function TeamCombinationsPage() {
                     type="number"
                     min="1"
                     max="7"
-                    value={customCombination.bowl}
+                    value={customCombination.bow}
                     onChange={(e) =>
-                      setCustomCombination((prev) => ({ ...prev, bowl: Number.parseInt(e.target.value) || 1 }))
+                      setCustomCombination((prev) => ({ ...prev, bow: Number.parseInt(e.target.value) || 1 }))
                     }
                     className="text-center"
                   />
@@ -234,7 +234,7 @@ export default function TeamCombinationsPage() {
                     </div>
                     <div className="text-center">
                       <div className="text-xs text-gray-500 mb-1">🎳 BOW</div>
-                      <div className="text-lg font-bold text-red-600">{combination.bowl}</div>
+                      <div className="text-lg font-bold text-red-600">{combination.bow}</div>
                     </div>
                   </div>
                   <Button size="sm" variant="outline" className="w-8 h-8 p-0 bg-transparent border-orange-300">

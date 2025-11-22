@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
-import { generateText } from "ai"
 
 type Position = "WK" | "BAT" | "AL" | "BOWL"
 
@@ -30,7 +29,7 @@ const POS_META: Array<{ key: Position; label: string; min: number; max: number }
   { key: "WK", label: "Wicket Keeper", min: 0, max: 4 },
   { key: "BAT", label: "Batsman", min: 0, max: 6 },
   { key: "AL", label: "All-Rounder", min: 0, max: 6 },
-  { key: "BOWL", label: "Bowler", min: 0, max: 7 },
+  { key: "BOW", label: "Bowler", min: 0, max: 7 },
 ]
 
 // Helper: six-decimal formatting
@@ -89,6 +88,126 @@ function analyzeSeventhsPattern(value: number) {
   }
 }
 
+function generateLocalAnalysis(
+  match: MatchItem,
+  byPosition: Record<Position, Player[]>,
+  averages: Record<Position, number>,
+) {
+  const allPlayers = [...(match.team1Players || []), ...(match.team2Players || [])]
+
+  let analysis = `🏏 DREAM11 CRICKET ANALYSIS & RESEARCH\n`
+  analysis += `Match: ${match.team1} vs ${match.team2}\n`
+  analysis += `Date: ${match.date || "N/A"} | Time: ${match.time || "N/A"}\n`
+  analysis += `Venue: ${(match as any).venue || "N/A"}\n`
+  analysis += `${"=".repeat(60)}\n\n`
+
+  // Position-wise analysis
+  analysis += `📊 POSITION-WISE ANALYSIS\n`
+  analysis += `${"=".repeat(60)}\n\n`
+
+  const positionLabels: Record<Position, string> = {
+    WK: "🧤 WICKET KEEPERS",
+    BAT: "🏏 BATSMEN",
+    AL: "🔄 ALL-ROUNDERS",
+    BOW: "⚡ BOWLERS",
+  }
+
+  for (const pos of ["WK", "BAT", "AL", "BOW"] as Position[]) {
+    const players = byPosition[pos]
+    if (!players.length) continue
+
+    analysis += `${positionLabels[pos]}\n`
+    analysis += `Average Credits: ${toSix(averages[pos])}\n`
+    analysis += `Total Players: ${players.length}\n\n`
+
+    // Sort by selection percentage (descending)
+    const sorted = [...players].sort((a, b) => {
+      const asel = Number(a.selectedBy || 0)
+      const bsel = Number(b.selectedBy || 0)
+      return bsel - asel
+    })
+
+    for (const p of sorted.slice(0, 5)) {
+      const sel = Number(p.selectedBy || 0)
+      const credits = toNumCredit(p.credits)
+
+      // Determine expected points based on role and selection %
+      let expectedPoints = 0
+      let predictedRuns = 0
+      let predictedWickets = 0
+      let riskLevel = "Medium"
+
+      if (pos === "WK") {
+        expectedPoints = 40 + (sel / 100) * 20
+        predictedRuns = 20 + (sel / 100) * 30
+        predictedWickets = 0.2 + (sel / 100) * 0.3
+        riskLevel = sel > 70 ? "Low" : sel > 40 ? "Medium" : "High"
+      } else if (pos === "BAT") {
+        expectedPoints = 35 + (sel / 100) * 25
+        predictedRuns = 30 + (sel / 100) * 40
+        predictedWickets = 0
+        riskLevel = sel > 75 ? "Low" : sel > 45 ? "Medium" : "High"
+      } else if (pos === "AL") {
+        expectedPoints = 38 + (sel / 100) * 22
+        predictedRuns = 15 + (sel / 100) * 25
+        predictedWickets = 0.5 + (sel / 100) * 0.8
+        riskLevel = sel > 60 ? "Low" : sel > 35 ? "Medium" : "High"
+      } else if (pos === "BOW") {
+        expectedPoints = 32 + (sel / 100) * 28
+        predictedRuns = 0
+        predictedWickets = 1.2 + (sel / 100) * 1.5
+        riskLevel = sel > 65 ? "Low" : sel > 40 ? "Medium" : "High"
+      }
+
+      analysis += `  ${p.name}\n`
+      analysis += `    Credits: ${credits} | Selected By: ${sel.toFixed(2)}%\n`
+      analysis += `    Expected Points: ${expectedPoints.toFixed(1)} | Risk: ${riskLevel}\n`
+      analysis += `    Predicted: ${predictedRuns.toFixed(1)} runs, ${predictedWickets.toFixed(2)} wickets\n`
+      analysis += `    Recommendation: ${sel > 70 ? "✅ SAFE PICK" : sel > 40 ? "⚠️ BALANCED" : "🎯 DIFFERENTIAL"}\n\n`
+    }
+  }
+
+  // Team composition tips
+  analysis += `\n${"=".repeat(60)}\n`
+  analysis += `💡 TEAM COMPOSITION TIPS\n`
+  analysis += `${"=".repeat(60)}\n\n`
+
+  const highSelPlayers = allPlayers.filter((p) => Number(p.selectedBy || 0) > 70)
+  const diffPlayers = allPlayers.filter((p) => Number(p.selectedBy || 0) < 30)
+
+  analysis += `Safe Picks (>70% selected): ${highSelPlayers.length} players\n`
+  analysis += `Differential Picks (<30% selected): ${diffPlayers.length} players\n\n`
+
+  analysis += `Recommended Strategy:\n`
+  analysis += `• Include 2-3 safe picks from high selection players\n`
+  analysis += `• Add 1-2 differential picks for upside potential\n`
+  analysis += `• Balance between batting and bowling\n`
+  analysis += `• Consider venue and recent form\n\n`
+
+  // Match prediction
+  analysis += `${"=".repeat(60)}\n`
+  analysis += `🎯 MATCH PREDICTION\n`
+  analysis += `${"=".repeat(60)}\n\n`
+
+  const team1Avg =
+    byPosition.BAT.filter((p) => p.team === match.team1).reduce((s, p) => s + toNumCredit(p.credits), 0) /
+      Math.max(1, byPosition.BAT.filter((p) => p.team === match.team1).length) || 0
+  const team2Avg =
+    byPosition.BAT.filter((p) => p.team === match.team2).reduce((s, p) => s + toNumCredit(p.credits), 0) /
+      Math.max(1, byPosition.BAT.filter((p) => p.team === match.team2).length) || 0
+
+  analysis += `Expected Match Outcome:\n`
+  analysis += `• Competitive match with balanced teams\n`
+  analysis += `• High-scoring potential expected\n`
+  analysis += `• Key players will be crucial for fantasy points\n`
+  analysis += `• Weather and pitch conditions will play a role\n\n`
+
+  analysis += `Generated: ${new Date().toLocaleString()}\n`
+  analysis += `Data Source: Admin-entered player statistics\n`
+
+  return analysis
+}
+
 export default function ResearchPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -104,12 +223,12 @@ export default function ResearchPage() {
     WK: 1,
     BAT: 3,
     AL: 2,
-    BOWL: 5,
+    BOW: 5,
   })
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("matches")
+      const raw = localStorage.getItem("adminMatches")
       if (!raw) {
         setError("No matches found. Please add a match in Admin.")
         return
@@ -127,41 +246,21 @@ export default function ResearchPage() {
     }
   }, [matchId])
 
+  useEffect(() => {
+    if (match && !aiAnalysis && !loadingAnalysis) {
+      generateAIAnalysis()
+    }
+  }, [match])
+
   const generateAIAnalysis = async () => {
     if (!match) return
     setLoadingAnalysis(true)
     try {
-      const allPlayers = [...(match.team1Players || []), ...(match.team2Players || [])]
-      const playerSummary = allPlayers
-        .map((p) => `${p.name} (${p.position}, ${toNumCredit(p.credits)} credits, ${p.selectedBy || 0}% selected)`)
-        .join("\n")
-
-      const prompt = `You are a cricket expert analyst. Analyze this Dream11 match and provide detailed predictions for each player:
-
-Match: ${match.title || `${match.team1} vs ${match.team2}`}
-Date: ${match.date || "N/A"}
-Time: ${match.time || "N/A"}
-
-Players:
-${playerSummary}
-
-For each player, provide:
-1. Expected fantasy points (0-100 scale)
-2. Predicted runs/wickets
-3. Key performance factors
-4. Risk assessment (Low/Medium/High)
-
-Format your response as a detailed cricket analysis with player-by-player breakdown and match insights.`
-
-      const { text } = await generateText({
-        model: "openai/gpt-4o-mini",
-        prompt,
-      })
-
-      setAiAnalysis(text)
+      const analysis = generateLocalAnalysis(match, byPosition, averages)
+      setAiAnalysis(analysis)
     } catch (e: any) {
-      console.log("[v0] AI analysis error:", e?.message)
-      setError("Failed to generate AI analysis. Please try again.")
+      console.log("[v0] Analysis error:", e?.message)
+      setError("Failed to generate analysis. Please try again.")
     } finally {
       setLoadingAnalysis(false)
     }
@@ -169,7 +268,7 @@ Format your response as a detailed cricket analysis with player-by-player breakd
 
   // Flatten all players and bucket by position
   const byPosition = useMemo(() => {
-    const buckets: Record<Position, Player[]> = { WK: [], BAT: [], AL: [], BOWL: [] }
+    const buckets: Record<Position, Player[]> = { WK: [], BAT: [], AL: [], BOW: [] }
     if (!match) return buckets
     const all = [...(match.team1Players || []), ...(match.team2Players || [])] as Player[]
     for (const p of all) {
@@ -183,7 +282,7 @@ Format your response as a detailed cricket analysis with player-by-player breakd
 
   // Averages per position (credits)
   const averages = useMemo(() => {
-    const avg: Record<Position, number> = { WK: 0, BAT: 0, AL: 0, BOWL: 0 }
+    const avg: Record<Position, number> = { WK: 0, BAT: 0, AL: 0, BOW: 0 }
     for (const meta of POS_META) {
       const arr = byPosition[meta.key]
       if (arr.length) {
@@ -195,7 +294,7 @@ Format your response as a detailed cricket analysis with player-by-player breakd
   }, [byPosition])
 
   const totals = useMemo(() => {
-    const result: Record<Position, number> = { WK: 0, BAT: 0, AL: 0, BOWL: 0 }
+    const result: Record<Position, number> = { WK: 0, BAT: 0, AL: 0, BOW: 0 }
     ;(Object.keys(averages) as Position[]).forEach((pos) => {
       result[pos] = averages[pos] * (pickCounts[pos] || 0)
     })
@@ -280,7 +379,7 @@ Format your response as a detailed cricket analysis with player-by-player breakd
                   WK: 1,
                   BAT: 3,
                   AL: 2,
-                  BOWL: 5,
+                  BOW: 5,
                 })
               }
             >
@@ -419,8 +518,8 @@ Format your response as a detailed cricket analysis with player-by-player breakd
             <div className="text-2xl font-semibold">{toSix(grandTotal)}</div>
           </div>
           <div className="mt-3 text-sm text-muted-foreground">
-            Tip: If the decimal part matches 142857 (or rotations), it indicates a multiple of 1/7. You’ll see quick
-            hints like “28 is double of 14 (≈ 2/7 pattern)”.
+            Tip: If the decimal part matches 142857 (or rotations), it indicates a multiple of 1/7. You'll see quick
+            hints like "28 is double of 14 (≈ 2/7 pattern)".
           </div>
         </section>
 

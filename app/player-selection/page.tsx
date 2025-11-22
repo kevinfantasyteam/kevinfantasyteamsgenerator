@@ -191,7 +191,7 @@ export default function PlayerSelectionPage() {
   const wicketKeepers = players.filter((p) => p.position === "WK")
   const batsmen = players.filter((p) => p.position === "BAT")
   const allRounders = players.filter((p) => p.position === "ALL")
-  const bowlers = players.filter((p) => p.position === "BOWL")
+  const bowlers = players.filter((p) => p.position === "BOW")
 
   if (currentSection === "team-partition") {
     return (
