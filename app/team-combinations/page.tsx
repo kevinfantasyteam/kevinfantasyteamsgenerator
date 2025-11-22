@@ -260,7 +260,7 @@ export default function TeamCombinationsPage() {
             className="flex-1 bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600"
             onClick={handleSuggestion}
           >
-            <Sparkles className="h-4 w-4 mr-2" />🤖 AI Suggest
+            <Sparkles className="h-4 w-4 mr-2" />✨ Gemini Suggest
           </Button>
           <Button onClick={handleContinue} className="flex-1 bg-orange-600 hover:bg-orange-700 text-white">
             Continue 🚀

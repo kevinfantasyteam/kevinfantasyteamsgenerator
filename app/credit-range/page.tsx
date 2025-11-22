@@ -92,7 +92,7 @@ export default function CreditRangePage() {
         <div className="text-center mb-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-2">🎯 Smart Credit Management</h2>
           <p className="text-sm text-gray-600 mb-1">Set optimal credit range for winning combinations</p>
-          <p className="text-sm text-blue-600 font-medium">🤖 AI-powered recommendations below!</p>
+          <p className="text-sm text-blue-600 font-medium">✨ Gemini AI-powered recommendations below!</p>
         </div>
 
         {/* AI Suggestion Card */}
@@ -101,7 +101,7 @@ export default function CreditRangePage() {
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles className="h-4 w-4 text-purple-600" />
-                <span className="text-sm font-medium text-purple-700">AI Insight</span>
+                <span className="text-sm font-medium text-purple-700">✨ Gemini Insight</span>
               </div>
               <p className="text-sm text-gray-700">{aiSuggestion}</p>
             </CardContent>
@@ -145,7 +145,7 @@ export default function CreditRangePage() {
                   className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
                   onClick={handleAiSuggestion}
                 >
-                  <Sparkles className="h-4 w-4 mr-2" />🤖 AI Suggest
+                  <Sparkles className="h-4 w-4 mr-2" />✨ Gemini Suggest
                 </Button>
                 <Button variant="outline" className="flex-1 border-gray-300 bg-transparent">
                   <Info className="h-4 w-4 mr-2" />

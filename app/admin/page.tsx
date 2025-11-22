@@ -62,18 +62,26 @@ export default function AdminPage() {
     const lines = text.split("\n").filter((line) => line.trim())
     return lines
       .map((line) => {
-        const match = line.match(/^(.+?)\s+(WK|BAT|ALL|BOW)\s+([0-9.]+)%\s+([0-9.]+)$/)
+        const match = line.match(/^(.+?)\s+([a-zA-Z-/]+)\s+([0-9.]+)%\s+([0-9.]+)$/)
         if (match) {
-          return {
-            id: `${teamName}-${match[1].trim().replace(/\s+/g, "-")}-${Date.now()}`,
-            name: match[1].trim(),
-            position: match[2],
-            selectedBy: match[3],
-            credits: match[4],
-            team: teamName,
-            avatar: `/placeholder.svg?height=40&width=40&query=${match[1].trim()}`,
-            captainSel: `${Math.floor(Math.random() * 30 + 10)}%`,
-            viceCaptainSel: `${Math.floor(Math.random() * 20 + 5)}%`,
+          let role = match[2].toUpperCase()
+          if (["ALL", "AL", "AR", "ALLROUNDER", "ALL-ROUNDER", "ALL ROUNDER"].includes(role)) role = "ALL"
+          else if (["BOW", "BOWL", "BOWLER"].includes(role)) role = "BOW"
+          else if (["BAT", "BATSMAN", "BATTER"].includes(role)) role = "BAT"
+          else if (["WK", "WICKETKEEPER", "KEEPER"].includes(role)) role = "WK"
+
+          if (["WK", "BAT", "ALL", "BOW"].includes(role)) {
+            return {
+              id: `${teamName}-${match[1].trim().replace(/\s+/g, "-")}-${Date.now()}`,
+              name: match[1].trim(),
+              position: role,
+              selectedBy: match[3],
+              credits: match[4],
+              team: teamName,
+              avatar: `/placeholder.svg?height=40&width=40&query=${match[1].trim()}`,
+              captainSel: `${Math.floor(Math.random() * 30 + 10)}%`,
+              viceCaptainSel: `${Math.floor(Math.random() * 20 + 5)}%`,
+            }
           }
         }
         return null

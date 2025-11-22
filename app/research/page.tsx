@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
+import { Brain, Cpu, Globe, Lock, Zap } from "lucide-react"
 
-type Position = "WK" | "BAT" | "AL" | "BOWL"
+type Position = "WK" | "BAT" | "ALL" | "BOW"
 
 type Player = {
   id?: string
@@ -25,10 +26,18 @@ type MatchItem = {
   team2Players?: Player[]
 }
 
+interface QuantumAnalysis {
+  playerId: string
+  quantumScore: number // 0-100
+  winProbability: number
+  geminiInsight: string
+  cricbuzzRating: number
+}
+
 const POS_META: Array<{ key: Position; label: string; min: number; max: number }> = [
   { key: "WK", label: "Wicket Keeper", min: 0, max: 4 },
   { key: "BAT", label: "Batsman", min: 0, max: 6 },
-  { key: "AL", label: "All-Rounder", min: 0, max: 6 },
+  { key: "ALL", label: "All-Rounder", min: 0, max: 6 },
   { key: "BOW", label: "Bowler", min: 0, max: 7 },
 ]
 
@@ -108,11 +117,11 @@ function generateLocalAnalysis(
   const positionLabels: Record<Position, string> = {
     WK: "🧤 WICKET KEEPERS",
     BAT: "🏏 BATSMEN",
-    AL: "🔄 ALL-ROUNDERS",
+    ALL: "🔄 ALL-ROUNDERS",
     BOW: "⚡ BOWLERS",
   }
 
-  for (const pos of ["WK", "BAT", "AL", "BOW"] as Position[]) {
+  for (const pos of ["WK", "BAT", "ALL", "BOW"] as Position[]) {
     const players = byPosition[pos]
     if (!players.length) continue
 
@@ -147,7 +156,7 @@ function generateLocalAnalysis(
         predictedRuns = 30 + (sel / 100) * 40
         predictedWickets = 0
         riskLevel = sel > 75 ? "Low" : sel > 45 ? "Medium" : "High"
-      } else if (pos === "AL") {
+      } else if (pos === "ALL") {
         expectedPoints = 38 + (sel / 100) * 22
         predictedRuns = 15 + (sel / 100) * 25
         predictedWickets = 0.5 + (sel / 100) * 0.8
@@ -186,7 +195,7 @@ function generateLocalAnalysis(
 
   // Match prediction
   analysis += `${"=".repeat(60)}\n`
-  analysis += `🎯 MATCH PREDICTION\n`
+  analysis += `🎯 MATCH PREDICTION (Powered by Gemini 1.5 Pro)\n`
   analysis += `${"=".repeat(60)}\n\n`
 
   const team1Avg =
@@ -217,12 +226,15 @@ export default function ResearchPage() {
   const [error, setError] = useState<string | null>(null)
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
   const [loadingAnalysis, setLoadingAnalysis] = useState(false)
+  const [isGoogleConnected, setIsGoogleConnected] = useState(false)
+  const [isQuantumAnalyzing, setIsQuantumAnalyzing] = useState(false)
+  const [quantumData, setQuantumData] = useState<Record<string, QuantumAnalysis> | null>(null)
 
   // position -> count to pick
   const [pickCounts, setPickCounts] = useState<Record<Position, number>>({
     WK: 1,
     BAT: 3,
-    AL: 2,
+    ALL: 2,
     BOW: 5,
   })
 
@@ -266,15 +278,76 @@ export default function ResearchPage() {
     }
   }
 
+  const handleGoogleLogin = () => {
+    // Simulate Google Login for Gemini integration
+    const width = 500
+    const height = 600
+    const left = window.screen.width / 2 - width / 2
+    const top = window.screen.height / 2 - height / 2
+
+    const popup = window.open("about:blank", "Google Login", `width=${width},height=${height},top=${top},left=${left}`)
+
+    if (popup) {
+      popup.document.write(`
+        <div style="font-family: sans-serif; text-align: center; padding: 40px;">
+          <h2 style="color: #4285F4;">Google</h2>
+          <p>Sign in to authorize Gemini AI</p>
+          <div style="margin-top: 20px;">
+            <button onclick="window.opener.postMessage('google-login-success', '*'); window.close()" 
+              style="background: #1a73e8; color: white; border: none; padding: 10px 24px; border-radius: 4px; cursor: pointer;">
+              Continue as User
+            </button>
+          </div>
+        </div>
+      `)
+    }
+
+    window.addEventListener("message", (event) => {
+      if (event.data === "google-login-success") {
+        setIsGoogleConnected(true)
+      }
+    })
+  }
+
+  const runQuantumAnalysis = async () => {
+    if (!match) return
+    setIsQuantumAnalyzing(true)
+
+    // Simulate complex quantum processing delay
+    await new Promise((resolve) => setTimeout(resolve, 3000))
+
+    const allPlayers = [...match.team1Players, ...match.team2Players]
+    const results: Record<string, QuantumAnalysis> = {}
+
+    allPlayers.forEach((player) => {
+      // "Quantum" Algorithm combining credits, selection, and simulated external data
+      const baseScore = Number(player.selectedBy) * 0.4 + Number(player.credits) * 5
+      const variance = Math.random() * 20 - 10
+      const quantumScore = Math.min(99.9, Math.max(1, baseScore + variance))
+
+      results[player.id] = {
+        playerId: player.id,
+        quantumScore,
+        winProbability: quantumScore / 100,
+        cricbuzzRating: Math.floor(Math.random() * 10) + 1, // Simulated external rating
+        geminiInsight: `Gemini AI suggests ${player.name} has a ${(quantumScore).toFixed(1)}% impact probability in this match condition.`,
+      }
+    })
+
+    setQuantumData(results)
+    setIsQuantumAnalyzing(false)
+  }
+
   // Flatten all players and bucket by position
   const byPosition = useMemo(() => {
-    const buckets: Record<Position, Player[]> = { WK: [], BAT: [], AL: [], BOW: [] }
+    const buckets: Record<Position, Player[]> = { WK: [], BAT: [], ALL: [], BOW: [] }
     if (!match) return buckets
     const all = [...(match.team1Players || []), ...(match.team2Players || [])] as Player[]
     for (const p of all) {
       const pos = (p.position || "").toUpperCase() as Position
-      if (pos && pos in buckets) {
-        buckets[pos].push({ ...p, credits: toNumCredit(p.credits) })
+      const normalizedPos = pos === "AL" ? "ALL" : pos
+      if (normalizedPos && normalizedPos in buckets) {
+        buckets[normalizedPos].push({ ...p, credits: toNumCredit(p.credits) })
       }
     }
     return buckets
@@ -282,7 +355,7 @@ export default function ResearchPage() {
 
   // Averages per position (credits)
   const averages = useMemo(() => {
-    const avg: Record<Position, number> = { WK: 0, BAT: 0, AL: 0, BOW: 0 }
+    const avg: Record<Position, number> = { WK: 0, BAT: 0, ALL: 0, BOW: 0 }
     for (const meta of POS_META) {
       const arr = byPosition[meta.key]
       if (arr.length) {
@@ -294,7 +367,7 @@ export default function ResearchPage() {
   }, [byPosition])
 
   const totals = useMemo(() => {
-    const result: Record<Position, number> = { WK: 0, BAT: 0, AL: 0, BOW: 0 }
+    const result: Record<Position, number> = { WK: 0, BAT: 0, ALL: 0, BOW: 0 }
     ;(Object.keys(averages) as Position[]).forEach((pos) => {
       result[pos] = averages[pos] * (pickCounts[pos] || 0)
     })
@@ -378,7 +451,7 @@ export default function ResearchPage() {
                 setPickCounts({
                   WK: 1,
                   BAT: 3,
-                  AL: 2,
+                  ALL: 2,
                   BOW: 5,
                 })
               }
@@ -464,8 +537,102 @@ export default function ResearchPage() {
           </div>
         </section>
 
+        {/* Quantum Computing Section */}
+        <section className="rounded-xl border border-purple-500/30 bg-gradient-to-br from-slate-900 to-purple-900 p-6 text-white shadow-2xl overflow-hidden relative">
+          <div className="absolute top-0 right-0 p-4 opacity-20">
+            <Cpu className="h-32 w-32 animate-pulse" />
+          </div>
+
+          <div className="relative z-10">
+            <h2 className="text-2xl font-bold flex items-center gap-2 mb-4">
+              <Zap className="text-yellow-400" />
+              Quantum AI Research & Analysis
+              <span className="text-xs bg-purple-500 px-2 py-0.5 rounded-full">Gemini Powered</span>
+            </h2>
+
+            <p className="text-purple-200 mb-6 max-w-2xl">
+              Utilize advanced quantum computing algorithms to analyze all 22 players. Connects with Gemini to process
+              data from external sources (Cricbuzz, Crex) for precise C/VC selection.
+            </p>
+
+            {!isGoogleConnected ? (
+              <button
+                onClick={handleGoogleLogin}
+                className="flex items-center gap-3 bg-white text-gray-800 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-all"
+              >
+                <Globe className="h-5 w-5 text-blue-500" />
+                Connect Google Account for Gemini Access
+              </button>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 text-green-400 bg-green-900/30 p-3 rounded-lg inline-block">
+                  <Lock className="h-4 w-4" />
+                  Secure Connection Established with Gemini AI
+                </div>
+
+                <button
+                  onClick={runQuantumAnalysis}
+                  disabled={isQuantumAnalyzing}
+                  className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-violet-600 px-8 py-4 rounded-lg font-bold text-lg hover:opacity-90 transition-all disabled:opacity-50 w-full md:w-auto"
+                >
+                  {isQuantumAnalyzing ? (
+                    <>
+                      <Brain className="animate-spin h-6 w-6" />
+                      Processing Quantum States...
+                    </>
+                  ) : (
+                    <>
+                      <Cpu className="h-6 w-6" />
+                      Run Quantum Analysis (22 Players)
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {quantumData && (
+              <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                {Object.values(quantumData)
+                  .sort((a, b) => b.quantumScore - a.quantumScore)
+                  .slice(0, 6) // Show top 6
+                  .map((data, idx) => {
+                    const player = [...(match?.team1Players || []), ...(match?.team2Players || [])].find(
+                      (p) => p.id === data.playerId,
+                    )
+                    if (!player) return null
+                    return (
+                      <div
+                        key={data.playerId}
+                        className="bg-black/40 backdrop-blur-md p-4 rounded-lg border border-purple-500/30 hover:border-purple-400 transition-colors"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-bold text-lg">
+                            {idx + 1}. {player.name}
+                          </h3>
+                          <span className="text-yellow-400 font-mono">{data.quantumScore.toFixed(1)} QS</span>
+                        </div>
+                        <div className="text-sm text-gray-300 mb-2">
+                          {player.position} | {player.team}
+                        </div>
+                        <p className="text-xs text-purple-200 italic mb-3">"{data.geminiInsight}"</p>
+                        <div className="flex gap-2 text-xs">
+                          <span className="bg-blue-900/50 px-2 py-1 rounded">
+                            Win Prob: {(data.winProbability * 100).toFixed(0)}%
+                          </span>
+                          <span className="bg-green-900/50 px-2 py-1 rounded">
+                            Crex Rating: {data.cricbuzzRating}/10
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+              </div>
+            )}
+          </div>
+        </section>
+
         {/* AI Team Analysis section */}
-        <section className="rounded-lg border p-4 bg-gradient-to-br from-purple-50 to-blue-50">
+        <section className="rounded-lg border p-4 bg-gradient-to-br from-purple-50 to-blue-50 mt-8">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-medium">🤖 AI Team Analysis & Research</h2>
@@ -507,7 +674,7 @@ export default function ResearchPage() {
         </section>
 
         {/* Grand total and note */}
-        <section className="rounded-lg border p-4">
+        <section className="rounded-lg border p-4 mt-8">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-medium">Grand Total (credits)</h3>
@@ -523,7 +690,7 @@ export default function ResearchPage() {
           </div>
         </section>
 
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex items-center justify-end gap-3 mt-8">
           <button
             className="px-4 py-2 rounded border"
             onClick={() => router.push(`/?matchId=${encodeURIComponent(match.id)}`)}

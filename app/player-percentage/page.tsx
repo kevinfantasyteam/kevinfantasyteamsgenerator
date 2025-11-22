@@ -156,7 +156,7 @@ export default function PlayerPercentagePage() {
             className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
             onClick={handleSuggestion}
           >
-            <Sparkles className="h-4 w-4 mr-2" />🤖 AI Suggest
+            <Sparkles className="h-4 w-4 mr-2" />✨ Gemini Suggest
           </Button>
           <Button
             variant="outline"

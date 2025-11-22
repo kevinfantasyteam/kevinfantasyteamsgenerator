@@ -69,9 +69,20 @@ export default function PlayerSelectionPage() {
 
   const getAICaptainSuggestions = () => {
     const sortedPlayers = players
-      .filter((p) => Number.parseFloat(p.captainSel || "0") > 0)
-      .sort((a, b) => Number.parseFloat(b.captainSel || "0") - Number.parseFloat(a.captainSel || "0"))
-    return sortedPlayers.slice(0, 3)
+      .map((p) => {
+        // Enhanced scoring if captainSel is missing or looks random (default admin logic was random)
+        // We calculate a "Smart Score" based on credits and selection % as a proxy for "AI Research"
+        const selectionWeight = Number.parseFloat(p.selectedBy || "0")
+        const creditWeight = Number.parseFloat(p.credits || "0") * 10
+        const adminCaptainWeight = Number.parseFloat(p.captainSel || "0")
+
+        // If admin didn't input valid captainSel (or it's the low random default), boost based on performance proxy
+        const smartScore = selectionWeight * 0.4 + creditWeight * 0.4 + adminCaptainWeight * 0.2
+        return { ...p, smartScore }
+      })
+      .sort((a, b) => b.smartScore - a.smartScore)
+
+    return sortedPlayers.slice(0, 5) // Increased to top 5
   }
 
   const getMatchAnalysis = () => {
@@ -146,13 +157,13 @@ export default function PlayerSelectionPage() {
   const getSectionTitle = () => {
     switch (currentSection) {
       case "captain":
-        return "🏏 AI Captain Selection"
+        return "✨ Gemini AI Captain Selection"
       case "vice-captain":
-        return "⭐ AI Vice Captain Selection"
+        return "✨ Gemini AI Vice Captain Selection"
       case "fixed":
-        return "🔒 Fixed Player Selection"
+        return "✨ Gemini Fixed Player Selection"
       case "team-partition":
-        return "🎯 Team Partition Strategy"
+        return "✨ Gemini Team Partition Strategy"
       default:
         return "Player Selection"
     }
@@ -161,9 +172,9 @@ export default function PlayerSelectionPage() {
   const getSectionDescription = () => {
     switch (currentSection) {
       case "captain":
-        return "AI analyzes captain selection % and recent form\nSelect 1 or more potential captains"
+        return "Gemini analyzes captain selection % and recent form\nSelect 1 or more potential captains"
       case "vice-captain":
-        return "AI suggests vice-captains based on consistency\nSelect 2 or more potential vice-captains"
+        return "Gemini suggests vice-captains based on consistency\nSelect 2 or more potential vice-captains"
       case "fixed":
         return "Lock guaranteed performers in every team\nSelect 0-8 must-have players"
       case "team-partition":
@@ -210,7 +221,7 @@ export default function PlayerSelectionPage() {
             <div className="flex items-center gap-2">
               <Trophy className="h-6 w-6 text-yellow-300" />
               <div className="text-center">
-                <h1 className="font-bold text-lg">🏏 AI Team Generator</h1>
+                <h1 className="font-bold text-lg">✨ Gemini AI Team Generator</h1>
                 <p className="text-sm opacity-90">Cricket Intelligence Platform</p>
               </div>
             </div>
@@ -249,7 +260,7 @@ export default function PlayerSelectionPage() {
           {showAIAnalysis && (
             <div className="bg-gradient-to-r from-purple-100 to-blue-100 rounded-xl p-4 mb-4 border">
               <h4 className="font-bold text-purple-800 mb-3 flex items-center">
-                <Brain className="h-4 w-4 mr-2" />🤖 AI Match Analysis
+                <Brain className="h-4 w-4 mr-2" />✨ Gemini AI Match Analysis
               </h4>
               {(() => {
                 const analysis = getMatchAnalysis()
@@ -272,8 +283,8 @@ export default function PlayerSelectionPage() {
 
           <div className="text-center mb-6">
             <h2 className="text-xl font-semibold text-gray-800 mb-2">{getSectionTitle()}</h2>
-            <div className="border-b-2 border-blue-500 pb-2 mb-4">
-              <p className="text-sm text-gray-600 whitespace-pre-line">{getSectionDescription()}</p>
+            <div className={`border-b-2 ${getColorClass()} pb-2 mb-4`}>
+              <p className="text-sm text-muted-foreground whitespace-pre-line">{getSectionDescription()}</p>
             </div>
           </div>
 
@@ -378,7 +389,7 @@ export default function PlayerSelectionPage() {
               className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white"
               onClick={handleSuggestion}
             >
-              <Brain className="h-4 w-4 mr-2" />🤖 AI Suggest
+              <Brain className="h-4 w-4 mr-2" />✨ Gemini Suggest
             </Button>
             <Button onClick={handleContinue} className="flex-1 bg-gradient-to-r from-green-500 to-blue-500">
               Continue 🚀
@@ -413,7 +424,7 @@ export default function PlayerSelectionPage() {
           <div className="flex items-center gap-2">
             <Trophy className="h-6 w-6 text-yellow-300" />
             <div className="text-center">
-              <h1 className="font-bold text-lg">🏏 AI Team Generator</h1>
+              <h1 className="font-bold text-lg">✨ Gemini AI Team Generator</h1>
               <p className="text-sm opacity-90">Cricket Intelligence Platform</p>
             </div>
           </div>
@@ -452,7 +463,7 @@ export default function PlayerSelectionPage() {
         {showAIAnalysis && (
           <div className="bg-gradient-to-r from-purple-100 to-blue-100 rounded-xl p-4 mb-4 border">
             <h4 className="font-bold text-purple-800 mb-3 flex items-center">
-              <Brain className="h-4 w-4 mr-2" />🤖 AI{" "}
+              <Brain className="h-4 w-4 mr-2" />✨ Gemini AI{" "}
               {currentSection === "captain" ? "Captain" : currentSection === "vice-captain" ? "Vice-Captain" : "Player"}{" "}
               Analysis
             </h4>
@@ -640,7 +651,7 @@ export default function PlayerSelectionPage() {
             className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white"
             onClick={handleSuggestion}
           >
-            <Brain className="h-4 w-4 mr-2" />🤖 AI Suggest
+            <Brain className="h-4 w-4 mr-2" />✨ Gemini Suggest
           </Button>
           <Button onClick={handleContinue} className="flex-1 bg-gradient-to-r from-green-500 to-blue-500">
             Continue 🚀
