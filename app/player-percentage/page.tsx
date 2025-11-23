@@ -23,8 +23,17 @@ const patterns: Pattern[] = [
   { id: 5, lowRange: "0 - 50%", lowCount: 1, highRange: "50 - 100%", highCount: 10 },
 ]
 
+const teamPartitions = [
+  { id: "balanced", name: "Balanced", ratio: "6:5 or 5:6" },
+  { id: "favor-team1", name: "Favor Team 1", ratio: "7:4" },
+  { id: "favor-team2", name: "Favor Team 2", ratio: "4:7" },
+  { id: "mini-1", name: "Mini 1 (Risky)", ratio: "1:10 or 10:1" },
+  { id: "maxi-all", name: "Max All (One Sided)", ratio: "7:4 (Max Limit)" },
+]
+
 export default function PlayerPercentagePage() {
   const [selectedPatterns, setSelectedPatterns] = useState<number[]>([])
+  const [selectedPartition, setSelectedPartition] = useState<string>("balanced")
   const [currentTab, setCurrentTab] = useState<"pattern-1" | "pattern-2">("pattern-1")
   const [matchName, setMatchName] = useState("")
   const searchParams = useSearchParams()
@@ -47,8 +56,14 @@ export default function PlayerPercentagePage() {
     )
   }
 
+  const handlePartitionSelect = (partitionId: string) => {
+    setSelectedPartition(partitionId)
+    localStorage.setItem("teamPartitionStrategy", partitionId)
+  }
+
   const handleSuggestion = () => {
     setSelectedPatterns([1, 2, 3])
+    handlePartitionSelect("balanced")
   }
 
   const handleContinue = () => {
@@ -157,6 +172,28 @@ export default function PlayerPercentagePage() {
             </Card>
           ))}
         </div>
+
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">📊 Team Partition (Team A : Team B)</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {teamPartitions.map((partition) => (
+              <Button
+                key={partition.id}
+                variant={selectedPartition === partition.id ? "default" : "outline"}
+                className={`h-auto py-2 flex flex-col items-center justify-center ${
+                  selectedPartition === partition.id
+                    ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                    : "bg-white hover:bg-blue-50 text-gray-700 border-gray-200"
+                }`}
+                onClick={() => handlePartitionSelect(partition.id)}
+              >
+                <span className="font-bold text-md">{partition.ratio}</span>
+                <span className="text-xs opacity-80">{partition.name}</span>
+              </Button>
+            ))}
+          </div>
+        </div>
+        {/* </CHANGE> */}
 
         <div className="flex gap-3 mb-6">
           <Button

@@ -50,6 +50,9 @@ export default function TeamCombinationsPage() {
   }, [matchId])
 
   const handleCombinationSelect = (combinationId: number) => {
+    if (combinationId !== 999) {
+      localStorage.removeItem("useCustomCombination")
+    }
     setSelectedCombinations((prev) =>
       prev.includes(combinationId) ? prev.filter((id) => id !== combinationId) : [...prev, combinationId],
     )
@@ -67,6 +70,8 @@ export default function TeamCombinationsPage() {
   const handleCustomSave = () => {
     // Add custom combination to selected
     const customId = 999
+    localStorage.setItem("customCombination", JSON.stringify(customCombination))
+    localStorage.setItem("useCustomCombination", "true")
     setSelectedCombinations((prev) => [...prev, customId])
     setShowCustom(false)
   }

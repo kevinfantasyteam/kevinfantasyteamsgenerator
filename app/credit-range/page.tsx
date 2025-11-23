@@ -56,6 +56,7 @@ export default function CreditRangePage() {
   }
 
   const handleContinue = () => {
+    localStorage.setItem("creditRange", JSON.stringify({ min: minCredit, max: maxCredit }))
     router.push(`/team-combinations?matchId=${matchId}`)
   }
 
