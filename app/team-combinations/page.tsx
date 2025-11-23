@@ -34,6 +34,7 @@ export default function TeamCombinationsPage() {
   const [currentTab, setCurrentTab] = useState<"old" | "new">("old")
   const [showCustom, setShowCustom] = useState(false)
   const [customCombination, setCustomCombination] = useState({ wk: 1, bat: 3, al: 2, bow: 5 })
+  const [customCombinationsList, setCustomCombinationsList] = useState<Combination[]>([])
   const [matchName, setMatchName] = useState("")
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -50,9 +51,6 @@ export default function TeamCombinationsPage() {
   }, [matchId])
 
   const handleCombinationSelect = (combinationId: number) => {
-    if (combinationId !== 999) {
-      localStorage.removeItem("useCustomCombination")
-    }
     setSelectedCombinations((prev) =>
       prev.includes(combinationId) ? prev.filter((id) => id !== combinationId) : [...prev, combinationId],
     )
@@ -68,11 +66,11 @@ export default function TeamCombinationsPage() {
   }
 
   const handleCustomSave = () => {
-    // Add custom combination to selected
-    const customId = 999
-    localStorage.setItem("customCombination", JSON.stringify(customCombination))
-    localStorage.setItem("useCustomCombination", "true")
-    setSelectedCombinations((prev) => [...prev, customId])
+    const newId = 1000 + customCombinationsList.length + 1
+    const newCombo = { ...customCombination, id: newId }
+
+    setCustomCombinationsList((prev) => [...prev, newCombo])
+    setSelectedCombinations((prev) => [...prev, newId])
     setShowCustom(false)
   }
 
@@ -170,12 +168,11 @@ export default function TeamCombinationsPage() {
                     }
                     className="w-full p-2 border rounded-md text-center"
                   >
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                    <option value={3}>3</option>
-                    <option value={4}>4</option>
-                    <option value={5}>5</option>
-                    <option value={6}>6</option>
+                    {[1, 2, 3, 4, 5, 6].map((num) => (
+                      <option key={num} value={num}>
+                        {num}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -185,12 +182,11 @@ export default function TeamCombinationsPage() {
                     onChange={(e) => setCustomCombination((prev) => ({ ...prev, al: Number.parseInt(e.target.value) }))}
                     className="w-full p-2 border rounded-md text-center"
                   >
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                    <option value={3}>3</option>
-                    <option value={4}>4</option>
-                    <option value={5}>5</option>
-                    <option value={6}>6</option>
+                    {[1, 2, 3, 4, 5, 6].map((num) => (
+                      <option key={num} value={num}>
+                        {num}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -202,19 +198,32 @@ export default function TeamCombinationsPage() {
                     }
                     className="w-full p-2 border rounded-md text-center"
                   >
-                    <option value={1}>1</option>
-                    <option value={2}>2</option>
-                    <option value={3}>3</option>
-                    <option value={4}>4</option>
-                    <option value={5}>5</option>
-                    <option value={6}>6</option>
-                    <option value={7}>7</option>
+                    {[1, 2, 3, 4, 5, 6, 7].map((num) => (
+                      <option key={num} value={num}>
+                        {num}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
 
-              <Button onClick={handleCustomSave} className="w-full bg-purple-600 hover:bg-purple-700 text-white">
-                Save Custom Combination
+              <div className="flex justify-between items-center mb-4 text-sm">
+                <span className="text-gray-600">Total Players:</span>
+                <span
+                  className={`font-bold ${customCombination.wk + customCombination.bat + customCombination.al + customCombination.bow === 11 ? "text-green-600" : "text-red-600"}`}
+                >
+                  {customCombination.wk + customCombination.bat + customCombination.al + customCombination.bow}/11
+                </span>
+              </div>
+
+              <Button
+                onClick={handleCustomSave}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                disabled={
+                  customCombination.wk + customCombination.bat + customCombination.al + customCombination.bow !== 11
+                }
+              >
+                Save & Select Combination
               </Button>
             </CardContent>
           </Card>
@@ -222,6 +231,53 @@ export default function TeamCombinationsPage() {
 
         {/* Combination Cards */}
         <div className="space-y-3 mb-6">
+          {customCombinationsList.map((combination) => (
+            <Card
+              key={combination.id}
+              className={`cursor-pointer transition-all border-2 ${
+                selectedCombinations.includes(combination.id)
+                  ? "ring-2 ring-purple-400 border-purple-300 bg-purple-50"
+                  : "border-gray-200 hover:border-purple-200"
+              }`}
+              onClick={() => handleCombinationSelect(combination.id)}
+            >
+              <CardContent className="p-4 relative">
+                <div className="absolute top-2 right-2">
+                  <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">Custom</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-6">
+                    <div className="text-center">
+                      <div className="text-xs text-gray-500 mb-1">🧤 WK</div>
+                      <div className="text-lg font-bold text-blue-600">{combination.wk}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs text-gray-500 mb-1">🏏 BAT</div>
+                      <div className="text-lg font-bold text-green-600">{combination.bat}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs text-gray-500 mb-1">⚡ ALL</div>
+                      <div className="text-lg font-bold text-purple-600">{combination.al}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs text-gray-500 mb-1">🎳 BOW</div>
+                      <div className="text-lg font-bold text-red-600">{combination.bow}</div>
+                    </div>
+                  </div>
+                  {selectedCombinations.includes(combination.id) ? (
+                    <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                      <span className="text-white text-xl">✓</span>
+                    </div>
+                  ) : (
+                    <Button size="sm" variant="outline" className="w-8 h-8 p-0 bg-transparent border-purple-300">
+                      <Plus className="h-4 w-4 text-purple-600" />
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
           {combinations.map((combination) => (
             <Card
               key={combination.id}

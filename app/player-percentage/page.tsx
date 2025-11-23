@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Trophy, ArrowLeft, Home, Plus, Sparkles } from "lucide-react"
+import { Trophy, ArrowLeft, Home, Plus, Sparkles, Settings, X } from "lucide-react"
 import Link from "next/link"
 import { useSearchParams, useRouter } from "next/navigation"
+import { Label } from "@/components/ui/label"
 
 interface Pattern {
   id: number
@@ -23,18 +24,12 @@ const patterns: Pattern[] = [
   { id: 5, lowRange: "0 - 50%", lowCount: 1, highRange: "50 - 100%", highCount: 10 },
 ]
 
-const teamPartitions = [
-  { id: "balanced", name: "Balanced", ratio: "6:5 or 5:6" },
-  { id: "favor-team1", name: "Favor Team 1", ratio: "7:4" },
-  { id: "favor-team2", name: "Favor Team 2", ratio: "4:7" },
-  { id: "mini-1", name: "Mini 1 (Risky)", ratio: "1:10 or 10:1" },
-  { id: "maxi-all", name: "Max All (One Sided)", ratio: "7:4 (Max Limit)" },
-]
-
 export default function PlayerPercentagePage() {
   const [selectedPatterns, setSelectedPatterns] = useState<number[]>([])
-  const [selectedPartition, setSelectedPartition] = useState<string>("balanced")
   const [currentTab, setCurrentTab] = useState<"pattern-1" | "pattern-2">("pattern-1")
+  const [showCustom, setShowCustom] = useState(false)
+  const [customPartition, setCustomPartition] = useState({ lowCount: 4, highCount: 7 })
+  const [customPatternsList, setCustomPatternsList] = useState<Pattern[]>([])
   const [matchName, setMatchName] = useState("")
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -56,14 +51,22 @@ export default function PlayerPercentagePage() {
     )
   }
 
-  const handlePartitionSelect = (partitionId: string) => {
-    setSelectedPartition(partitionId)
-    localStorage.setItem("teamPartitionStrategy", partitionId)
+  const handleCustomSave = () => {
+    const newId = 2000 + customPatternsList.length + 1
+    const newPattern: Pattern = {
+      id: newId,
+      lowRange: "0 - 50%",
+      lowCount: customPartition.lowCount,
+      highRange: "50 - 100%",
+      highCount: customPartition.highCount,
+    }
+    setCustomPatternsList((prev) => [...prev, newPattern])
+    setSelectedPatterns((prev) => [...prev, newId])
+    setShowCustom(false)
   }
 
   const handleSuggestion = () => {
     setSelectedPatterns([1, 2, 3])
-    handlePartitionSelect("balanced")
   }
 
   const handleContinue = () => {
@@ -133,7 +136,110 @@ export default function PlayerPercentagePage() {
           </Button>
         </div>
 
+        {showCustom && (
+          <Card className="mb-6 border-2 border-purple-300 bg-gradient-to-r from-purple-50 to-pink-50">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-purple-700">🎨 Custom Partition</h3>
+                <Button size="sm" variant="ghost" onClick={() => setShowCustom(false)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="space-y-4 mb-4">
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <Label className="text-sm text-gray-600">🔻 Low Risk (0-50%)</Label>
+                    <span className="font-bold">{customPartition.lowCount} Players</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="11"
+                    value={customPartition.lowCount}
+                    onChange={(e) => {
+                      const val = Number.parseInt(e.target.value)
+                      setCustomPartition({ lowCount: val, highCount: 11 - val })
+                    }}
+                    className="w-full accent-green-600"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <Label className="text-sm text-gray-600">🔥 High Impact (50-100%)</Label>
+                    <span className="font-bold">{customPartition.highCount} Players</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="10"
+                    value={customPartition.highCount}
+                    onChange={(e) => {
+                      const val = Number.parseInt(e.target.value)
+                      setCustomPartition({ highCount: val, lowCount: 11 - val })
+                    }}
+                    className="w-full accent-blue-600"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center mb-4 text-sm">
+                <span className="text-gray-600">Total Players:</span>
+                <span className="font-bold text-green-600">
+                  {customPartition.lowCount + customPartition.highCount}/11
+                </span>
+              </div>
+
+              <Button onClick={handleCustomSave} className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                Save & Select Strategy
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="space-y-3 mb-6">
+          {customPatternsList.map((pattern) => (
+            <Card
+              key={pattern.id}
+              className={`cursor-pointer transition-all border-2 ${
+                selectedPatterns.includes(pattern.id)
+                  ? "ring-2 ring-purple-400 border-purple-300 bg-purple-50"
+                  : "border-gray-200 hover:border-purple-200"
+              }`}
+              onClick={() => handlePatternSelect(pattern.id)}
+            >
+              <CardContent className="p-4 relative">
+                <div className="absolute top-2 right-2">
+                  <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">Custom</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-sm text-gray-600">🔻 Low Risk Players</Label>
+                      <span className="text-lg font-bold text-green-600">{pattern.lowCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm text-gray-600">🔥 High Impact Players</Label>
+                      <span className="text-lg font-bold text-blue-600">{pattern.highCount}</span>
+                    </div>
+                  </div>
+                  <div className="ml-4">
+                    {selectedPatterns.includes(pattern.id) ? (
+                      <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                        <span className="text-white text-xl">✓</span>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" className="w-8 h-8 p-0 bg-transparent border-purple-300">
+                        <Plus className="h-4 w-4 text-purple-600" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+
           {patterns.map((pattern) => (
             <Card
               key={pattern.id}
@@ -148,11 +254,11 @@ export default function PlayerPercentagePage() {
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-600">🔻 Low Risk Players</span>
+                      <Label className="text-sm text-gray-600">🔻 Low Risk Players</Label>
                       <span className="text-lg font-bold text-green-600">{pattern.lowCount}</span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">🔥 High Impact Players</span>
+                      <Label className="text-sm text-gray-600">🔥 High Impact Players</Label>
                       <span className="text-lg font-bold text-blue-600">{pattern.highCount}</span>
                     </div>
                   </div>
@@ -173,35 +279,22 @@ export default function PlayerPercentagePage() {
           ))}
         </div>
 
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">📊 Team Partition (Team A : Team B)</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {teamPartitions.map((partition) => (
-              <Button
-                key={partition.id}
-                variant={selectedPartition === partition.id ? "default" : "outline"}
-                className={`h-auto py-2 flex flex-col items-center justify-center ${
-                  selectedPartition === partition.id
-                    ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
-                    : "bg-white hover:bg-blue-50 text-gray-700 border-gray-200"
-                }`}
-                onClick={() => handlePartitionSelect(partition.id)}
-              >
-                <span className="font-bold text-md">{partition.ratio}</span>
-                <span className="text-xs opacity-80">{partition.name}</span>
-              </Button>
-            ))}
-          </div>
-        </div>
-        {/* </CHANGE> */}
-
         <div className="flex gap-3 mb-6">
+          <Button
+            variant="secondary"
+            className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600"
+            onClick={() => setShowCustom(true)}
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Custom
+          </Button>
           <Button
             variant="secondary"
             className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
             onClick={handleSuggestion}
           >
-            <Sparkles className="h-4 w-4 mr-2" />✨ Gemini Suggest
+            <Sparkles className="h-4 w-4 mr-2" />
+            Gemini Suggest
           </Button>
           <Button
             variant="outline"

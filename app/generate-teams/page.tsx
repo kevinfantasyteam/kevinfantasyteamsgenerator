@@ -63,141 +63,50 @@ export default function GenerateTeamsPage() {
     const hash = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
     setHashValue(hash)
 
-    const creditRange = JSON.parse(localStorage.getItem("creditRange") || '{"min": "0", "max": "100"}')
-    const minCredit = Number.parseFloat(creditRange.min)
-    const maxCredit = Number.parseFloat(creditRange.max)
+    const teams = Array.from({ length: Number.parseInt(numberOfTeams) }, (_, i) => {
+      const fixedPlayerObjects = matchPlayers.filter((p) => fixedPlayers.includes(p.id))
+      const remainingPlayers = matchPlayers.filter((p) => !fixedPlayers.includes(p.id))
 
-    const useCustomCombination = localStorage.getItem("useCustomCombination") === "true"
-    const customCombination = JSON.parse(
-      localStorage.getItem("customCombination") || '{"wk": 1, "bat": 3, "al": 2, "bow": 5}',
-    )
+      const shuffledRemaining = [...remainingPlayers].sort(() => 0.5 - Math.random())
+      const additionalPlayers = shuffledRemaining.slice(0, 11 - fixedPlayerObjects.length)
 
-    const partitionStrategy = localStorage.getItem("teamPartitionStrategy") || "balanced"
+      const selectedPlayers = [...fixedPlayerObjects, ...additionalPlayers]
 
-    const teams: any[] = []
-    let attempts = 0
-    const maxAttempts = 5000 // Avoid infinite loops
-    const targetTeams = Number.parseInt(numberOfTeams)
+      const totalCredits = selectedPlayers.reduce((sum, player) => sum + Number.parseFloat(player.credits), 0)
 
-    while (teams.length < targetTeams && attempts < maxAttempts) {
-      attempts++
-
-      // 1. Define Structure (Roles)
-      let structure = { wk: 0, bat: 0, al: 0, bow: 0 }
-
-      if (useCustomCombination) {
-        structure = customCombination
-      } else {
-        // Default dynamic structure if no custom combination
-        // Simple random valid cricket structure
-        const wk = 1 + Math.floor(Math.random() * 2) // 1-2
-        const bat = 3 + Math.floor(Math.random() * 3) // 3-5
-        const al = 1 + Math.floor(Math.random() * 3) // 1-3
-        const bow = 3 + Math.floor(Math.random() * 3) // 3-5
-
-        // Adjust to ensure sum is 11
-        const sum = wk + bat + al + bow
-        if (sum < 11) structure = { wk, bat: bat + (11 - sum), al, bow }
-        else if (sum > 11) structure = { wk, bat: Math.max(3, bat - (sum - 11)), al, bow }
-        else structure = { wk, bat, al, bow }
-      }
-
-      // 2. Filter Players by Role
-      const wkPlayers = matchPlayers.filter((p) => p.role === "WK" || p.role === "Wicket Keeper")
-      const batPlayers = matchPlayers.filter((p) => p.role === "BAT" || p.role === "Batsman")
-      const alPlayers = matchPlayers.filter((p) => p.role === "ALL" || p.role === "All Rounder")
-      const bowPlayers = matchPlayers.filter((p) => p.role === "BOW" || p.role === "Bowler")
-
-      // 3. Select Players based on Structure
-      const selectRandom = (pool: any[], count: number, fixed: string[]) => {
-        const fixedInPool = pool.filter((p) => fixed.includes(p.id))
-        const remainingNeeded = count - fixedInPool.length
-        if (remainingNeeded < 0) return fixedInPool.slice(0, count) // Too many fixed for this role
-
-        const available = pool.filter((p) => !fixed.includes(p.id)).sort(() => 0.5 - Math.random())
-        return [...fixedInPool, ...available.slice(0, remainingNeeded)]
-      }
-
-      const selectedWK = selectRandom(wkPlayers, structure.wk, fixedPlayers)
-      const selectedBAT = selectRandom(batPlayers, structure.bat, fixedPlayers)
-      const selectedAL = selectRandom(alPlayers, structure.al, fixedPlayers)
-      const selectedBOW = selectRandom(bowPlayers, structure.bow, fixedPlayers)
-
-      const teamPlayers = [...selectedWK, ...selectedBAT, ...selectedAL, ...selectedBOW]
-
-      // Verify we have 11 players
-      if (teamPlayers.length !== 11) continue
-
-      // Validate Team Partition (Team A vs Team B)
-      const team1Count = teamPlayers.filter((p) => p.team === "Team 1" || matchPlayers[0]?.team === p.team).length // Simplified check
-      // Needs robust team checking. Assuming matchPlayers has team info.
-      // Actually matchPlayers usually has team1Players and team2Players combined.
-      // Let's use the raw data structure if possible or infer from existing logic.
-      // The existing code didn't strictly track teams. I'll assume 'team' property exists or I can infer.
-      // If `team` property is missing, skip partition check or try to infer.
-
-      // Let's check partition strategy constraints
-      let isValidPartition = true
-      if (teamPlayers[0]?.team) {
-        const t1Name = teamPlayers[0].team
-        const t1Count = teamPlayers.filter((p) => p.team === t1Name).length
-        const t2Count = 11 - t1Count
-
-        if (partitionStrategy === "balanced") {
-          if (Math.abs(t1Count - t2Count) > 1) isValidPartition = false // 6:5 or 5:6 only
-        } else if (partitionStrategy === "favor-team1") {
-          if (t1Count < 7) isValidPartition = false
-        } else if (partitionStrategy === "favor-team2") {
-          if (t2Count < 7) isValidPartition = false
-        } else if (partitionStrategy === "mini-1") {
-          // Min 1 from a team means split like 10:1 or 1:10
-          if (t1Count !== 1 && t2Count !== 1) isValidPartition = false
-        } else if (partitionStrategy === "maxi-all") {
-          // Max possible? Usually 7 is max in Dream11 but maybe user wants 10?
-          // If user said "Maxi All", let's assume extreme splits allowed.
-          // If checking against Dream11 rules (max 10 from one team now), then 10:1 is valid.
-          // "Mini 1" and "Max All" logic might overlap.
-          // Let's assume "Max All" allows 7+ from one team.
-          if (t1Count < 7 && t2Count < 7) isValidPartition = false
-        }
-      }
-
-      if (!isValidPartition) continue
-
-      // Validate Credit Range
-      const totalCredits = teamPlayers.reduce((sum, p) => sum + Number.parseFloat(p.credits), 0)
-      if (totalCredits < minCredit || totalCredits > maxCredit) continue
-
-      // Assign Captain/VC
-      const captainCandidates = teamPlayers.filter((p) => captainOptions.includes(p.id))
-      const viceCaptainCandidates = teamPlayers.filter((p) => viceCaptainOptions.includes(p.id))
+      const captainCandidates = selectedPlayers.filter((p) => captainOptions.includes(p.id))
+      const viceCaptainCandidates = selectedPlayers.filter((p) => viceCaptainOptions.includes(p.id))
 
       const captain =
         captainCandidates.length > 0
           ? captainCandidates[Math.floor(Math.random() * captainCandidates.length)]
-          : teamPlayers[0]
+          : selectedPlayers[0]
 
       let viceCaptain =
         viceCaptainCandidates.length > 0
           ? viceCaptainCandidates[Math.floor(Math.random() * viceCaptainCandidates.length)]
-          : teamPlayers[1]
+          : selectedPlayers[1]
 
-      // Avoid same C/VC
-      if (captain.id === viceCaptain.id) {
-        const others = teamPlayers.filter((p) => p.id !== captain.id)
-        viceCaptain = others[Math.floor(Math.random() * others.length)]
+      while (viceCaptain.id === captain.id && selectedPlayers.length > 1) {
+        const availableVC = viceCaptainCandidates.filter((p) => p.id !== captain.id)
+        if (availableVC.length > 0) {
+          viceCaptain = availableVC[Math.floor(Math.random() * availableVC.length)]
+        } else {
+          viceCaptain = selectedPlayers.find((p) => p.id !== captain.id) || selectedPlayers[1]
+        }
+        break
       }
 
-      teams.push({
-        id: teams.length + 1,
+      return {
+        id: i + 1,
         captain: captain.name,
         viceCaptain: viceCaptain.name,
-        players: teamPlayers,
+        players: selectedPlayers,
         totalCredits: Number.parseFloat(totalCredits.toFixed(1)),
-        aiScore: Math.floor(Math.random() * 30) + 70, // Simple simulation score
-        fixedCount: teamPlayers.filter((p) => fixedPlayers.includes(p.id)).length,
-      })
-    }
+        aiScore: Math.floor(Math.random() * 30) + 70,
+        fixedCount: fixedPlayerObjects.length,
+      }
+    })
 
     setTimeout(() => {
       setGeneratedTeams(teams)
