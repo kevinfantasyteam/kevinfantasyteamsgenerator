@@ -141,9 +141,17 @@ export default function PlayerPercentagePage() {
                       <span className="text-lg font-bold text-blue-600">{pattern.highCount}</span>
                     </div>
                   </div>
-                  <Button size="sm" variant="outline" className="w-8 h-8 p-0 bg-transparent ml-4 border-green-300">
-                    <Plus className="h-4 w-4 text-green-600" />
-                  </Button>
+                  <div className="ml-4">
+                    {selectedPatterns.includes(pattern.id) ? (
+                      <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
+                        <span className="text-white text-xl">✓</span>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" className="w-8 h-8 p-0 bg-transparent border-green-300">
+                        <Plus className="h-4 w-4 text-green-600" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>

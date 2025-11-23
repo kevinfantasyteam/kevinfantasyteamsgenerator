@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Trophy, ArrowLeft, Home, Plus, Settings, Sparkles, X } from "lucide-react"
 import Link from "next/link"
@@ -146,55 +145,66 @@ export default function TeamCombinationsPage() {
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <Label className="text-sm text-gray-600">🧤 WK (1-4)</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="4"
+                  <select
                     value={customCombination.wk}
-                    onChange={(e) =>
-                      setCustomCombination((prev) => ({ ...prev, wk: Number.parseInt(e.target.value) || 1 }))
-                    }
-                    className="text-center"
-                  />
+                    onChange={(e) => setCustomCombination((prev) => ({ ...prev, wk: Number.parseInt(e.target.value) }))}
+                    className="w-full p-2 border rounded-md text-center"
+                  >
+                    <option value={1}>1</option>
+                    <option value={2}>2</option>
+                    <option value={3}>3</option>
+                    <option value={4}>4</option>
+                  </select>
                 </div>
                 <div>
                   <Label className="text-sm text-gray-600">🏏 BAT (1-6)</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="6"
+                  <select
                     value={customCombination.bat}
                     onChange={(e) =>
-                      setCustomCombination((prev) => ({ ...prev, bat: Number.parseInt(e.target.value) || 1 }))
+                      setCustomCombination((prev) => ({ ...prev, bat: Number.parseInt(e.target.value) }))
                     }
-                    className="text-center"
-                  />
+                    className="w-full p-2 border rounded-md text-center"
+                  >
+                    <option value={1}>1</option>
+                    <option value={2}>2</option>
+                    <option value={3}>3</option>
+                    <option value={4}>4</option>
+                    <option value={5}>5</option>
+                    <option value={6}>6</option>
+                  </select>
                 </div>
                 <div>
                   <Label className="text-sm text-gray-600">⚡ ALL (1-6)</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="6"
+                  <select
                     value={customCombination.al}
-                    onChange={(e) =>
-                      setCustomCombination((prev) => ({ ...prev, al: Number.parseInt(e.target.value) || 1 }))
-                    }
-                    className="text-center"
-                  />
+                    onChange={(e) => setCustomCombination((prev) => ({ ...prev, al: Number.parseInt(e.target.value) }))}
+                    className="w-full p-2 border rounded-md text-center"
+                  >
+                    <option value={1}>1</option>
+                    <option value={2}>2</option>
+                    <option value={3}>3</option>
+                    <option value={4}>4</option>
+                    <option value={5}>5</option>
+                    <option value={6}>6</option>
+                  </select>
                 </div>
                 <div>
                   <Label className="text-sm text-gray-600">🎳 BOW (1-7)</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    max="7"
+                  <select
                     value={customCombination.bow}
                     onChange={(e) =>
-                      setCustomCombination((prev) => ({ ...prev, bow: Number.parseInt(e.target.value) || 1 }))
+                      setCustomCombination((prev) => ({ ...prev, bow: Number.parseInt(e.target.value) }))
                     }
-                    className="text-center"
-                  />
+                    className="w-full p-2 border rounded-md text-center"
+                  >
+                    <option value={1}>1</option>
+                    <option value={2}>2</option>
+                    <option value={3}>3</option>
+                    <option value={4}>4</option>
+                    <option value={5}>5</option>
+                    <option value={6}>6</option>
+                    <option value={7}>7</option>
+                  </select>
                 </div>
               </div>
 
