@@ -81,21 +81,25 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* AI Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-4 shadow-lg">
+    <div className="min-h-screen bg-background">
+      <div className="bg-gradient-to-r from-primary to-secondary text-primary-foreground p-4 shadow-lg">
         <div className="flex items-center justify-between max-w-md mx-auto">
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Trophy className="h-6 w-6 text-yellow-300 animate-pulse" />
-              <Zap className="h-3 w-3 text-yellow-300 absolute -top-1 -right-1" />
+              <Trophy className="h-6 w-6 text-accent animate-pulse" />
+              <Zap className="h-3 w-3 text-accent absolute -top-1 -right-1" />
             </div>
             <div>
               <h1 className="font-bold text-lg">AI Team Generator</h1>
               <p className="text-sm opacity-90">KevinFantasy Pro</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="text-white hover:bg-white/20" onClick={handleAdminAccess}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-primary-foreground hover:bg-primary-foreground/20"
+            onClick={handleAdminAccess}
+          >
             <Settings className="h-5 w-5" />
           </Button>
         </div>
@@ -103,20 +107,19 @@ export default function HomePage() {
 
       {/* Content */}
       <div className="max-w-md mx-auto p-4 space-y-4 pb-24">
-        {/* AI Status Badge */}
-        <div className="flex items-center gap-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 border border-blue-500/30 rounded-lg p-3">
-          <Brain className="h-4 w-4 text-blue-400 animate-pulse" />
-          <span className="text-sm text-blue-200">AI Analysis Ready • Smart Suggestions Enabled</span>
+        <div className="flex items-center gap-2 bg-muted border border-border rounded-lg p-3">
+          <Brain className="h-4 w-4 text-primary animate-pulse" />
+          <span className="text-sm text-muted-foreground">AI Analysis Ready • Smart Suggestions Enabled</span>
         </div>
 
         {/* Upcoming Matches */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white">Upcoming Matches</h2>
+            <h2 className="text-lg font-semibold text-foreground">Upcoming Matches</h2>
             <Button
               variant="outline"
               size="sm"
-              className="text-xs bg-purple-500/20 border-purple-500/50 text-purple-200 hover:bg-purple-500/30"
+              className="text-xs bg-primary/20 border-primary/50 text-primary hover:bg-primary/30"
             >
               <Users className="h-3 w-3 mr-1" />
               Saved
@@ -124,15 +127,15 @@ export default function HomePage() {
           </div>
 
           {matches.length === 0 ? (
-            <Card className="p-8 text-center bg-slate-800/50 border-slate-700">
+            <Card className="p-8 text-center bg-muted border-border">
               <CardContent>
-                <Trophy className="h-12 w-12 mx-auto mb-4 text-slate-500" />
-                <h3 className="font-semibold mb-2 text-white">No Matches Available</h3>
-                <p className="text-sm text-slate-400 mb-4">Admin needs to add matches first</p>
+                <Trophy className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="font-semibold mb-2 text-foreground">No Matches Available</h3>
+                <p className="text-sm text-muted-foreground mb-4">Admin needs to add matches first</p>
                 <Button
                   onClick={handleAdminAccess}
                   variant="outline"
-                  className="bg-purple-600 border-purple-600 text-white hover:bg-purple-700"
+                  className="bg-primary border-primary text-primary-foreground hover:bg-primary/80"
                 >
                   Access Admin Panel
                 </Button>
@@ -142,17 +145,17 @@ export default function HomePage() {
             matches.map((match) => (
               <Card
                 key={match.id}
-                className={`cursor-pointer transition-all bg-slate-800/50 border-slate-700 hover:border-purple-500/50 ${
-                  selectedMatch === match.id ? "ring-2 ring-purple-500 border-purple-500" : ""
+                className={`cursor-pointer transition-all bg-card border-border hover:border-primary/50 ${
+                  selectedMatch === match.id ? "ring-2 ring-primary border-primary" : ""
                 }`}
                 onClick={() => handleMatchSelect(match.id)}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <Badge variant="outline" className="text-xs bg-blue-500/20 border-blue-500/50 text-blue-200">
+                    <Badge variant="outline" className="text-xs bg-secondary/20 border-secondary/50 text-foreground">
                       {match.tournament}
                     </Badge>
-                    <Badge className="text-xs bg-purple-600 text-white">
+                    <Badge className="text-xs bg-primary text-primary-foreground">
                       {(match.team1Players?.length || 0) + (match.team2Players?.length || 0)} Players
                     </Badge>
                   </div>
@@ -160,31 +163,35 @@ export default function HomePage() {
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-3 flex-1">
                       <div className="text-center">
-                        <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mb-1 shadow-lg">
-                          <span className="text-white text-xs font-bold">{match.teamName1.substring(0, 2)}</span>
+                        <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center mb-1 shadow-lg">
+                          <span className="text-primary-foreground text-xs font-bold">
+                            {match.teamName1.substring(0, 2)}
+                          </span>
                         </div>
-                        <span className="text-xs font-medium text-white">{match.teamName1}</span>
+                        <span className="text-xs font-medium text-foreground">{match.teamName1}</span>
                       </div>
 
                       <div className="text-center flex-1">
-                        <div className="flex items-center gap-1 text-slate-300 mb-1 justify-center">
+                        <div className="flex items-center gap-1 text-muted-foreground mb-1 justify-center">
                           <Clock className="h-3 w-3" />
                           <span className="text-xs">{getTimeRemaining(match.date, match.time)}</span>
                         </div>
                       </div>
 
                       <div className="text-center">
-                        <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mb-1 shadow-lg">
-                          <span className="text-white text-xs font-bold">{match.teamName2.substring(0, 2)}</span>
+                        <div className="w-8 h-8 bg-gradient-to-br from-secondary to-secondary/80 rounded-full flex items-center justify-center mb-1 shadow-lg">
+                          <span className="text-primary-foreground text-xs font-bold">
+                            {match.teamName2.substring(0, 2)}
+                          </span>
                         </div>
-                        <span className="text-xs font-medium text-white">{match.teamName2}</span>
+                        <span className="text-xs font-medium text-foreground">{match.teamName2}</span>
                       </div>
                     </div>
 
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-xs bg-blue-500/20 border border-blue-500/50 text-blue-200 hover:bg-blue-500/30"
+                      className="text-xs bg-primary/20 border border-primary/50 text-foreground hover:bg-primary/30"
                       onClick={(e) => handleResearch(match.id, e)}
                     >
                       <Brain className="h-3 w-3 mr-1" />
@@ -207,11 +214,10 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Continue Button */}
         {selectedMatch && (
           <Button
             onClick={handleContinue}
-            className="w-full mt-6 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold"
+            className="w-full mt-6 bg-primary hover:bg-primary/80 text-primary-foreground font-semibold"
             size="lg"
           >
             <Zap className="h-4 w-4 mr-2" />
@@ -221,32 +227,32 @@ export default function HomePage() {
       </div>
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-700 backdrop-blur">
+      <div className="fixed bottom-0 left-0 right-0 bg-background/95 border-t border-border backdrop-blur">
         <div className="max-w-md mx-auto flex">
           <Button
             variant="ghost"
-            className="flex-1 flex-col gap-1 h-16 rounded-none text-purple-400 hover:text-purple-300"
+            className="flex-1 flex-col gap-1 h-16 rounded-none text-primary hover:text-primary/80"
           >
             <Trophy className="h-4 w-4" />
             <span className="text-xs">Home</span>
           </Button>
           <Button
             variant="ghost"
-            className="flex-1 flex-col gap-1 h-16 rounded-none text-slate-400 hover:text-slate-300"
+            className="flex-1 flex-col gap-1 h-16 rounded-none text-muted-foreground hover:text-muted-foreground/80"
           >
             <Clock className="h-4 w-4" />
             <span className="text-xs">My matches</span>
           </Button>
           <Button
             variant="ghost"
-            className="flex-1 flex-col gap-1 h-16 rounded-none text-slate-400 hover:text-slate-300"
+            className="flex-1 flex-col gap-1 h-16 rounded-none text-muted-foreground hover:text-muted-foreground/80"
           >
             <Brain className="h-4 w-4" />
             <span className="text-xs">Research</span>
           </Button>
           <Button
             variant="ghost"
-            className="flex-1 flex-col gap-1 h-16 rounded-none text-slate-400 hover:text-slate-300"
+            className="flex-1 flex-col gap-1 h-16 rounded-none text-muted-foreground hover:text-muted-foreground/80"
           >
             <Hash className="h-4 w-4" />
             <span className="text-xs">User</span>
