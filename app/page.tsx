@@ -18,6 +18,8 @@ interface Match {
   tournament: string
   team1Players: any[]
   team2Players: any[]
+  matchDetails: string // Added matchDetails field
+  liveAnalytics: string // Added liveAnalytics field
 }
 
 export default function HomePage() {
@@ -189,6 +191,16 @@ export default function HomePage() {
                       Research
                     </Button>
                   </div>
+
+                  {/* Advanced Match Details and Live Analytics */}
+                  {selectedMatch === match.id && (
+                    <div className="mt-4">
+                      <h3 className="text-sm font-semibold text-white">Match Details</h3>
+                      <p className="text-xs text-slate-400 mb-2">{match.matchDetails}</p>
+                      <h3 className="text-sm font-semibold text-white">Live Analytics</h3>
+                      <p className="text-xs text-slate-400 mb-2">{match.liveAnalytics}</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))
