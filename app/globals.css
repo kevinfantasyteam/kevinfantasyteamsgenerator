@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -143,7 +142,7 @@
   }
 }
 
-/* Plane Loader Animation */
+/* Removed invalid tw-animate-css import causing CSS parse error */
 @keyframes plane-dash {
   0% {
     stroke-dasharray: 1 150;

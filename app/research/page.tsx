@@ -39,6 +39,12 @@ interface QuantumInsights {
   bestFixPlayers: string[]
   differentialPicks: string[]
   captaincyCandidates: string[]
+  topPicks: { id: string; score: number }[]
+  valuablePlayers: { id: string; score: number }[]
+  captainPicks: { id: string; score: number }[]
+  viceCaptainPicks: { id: string; score: number }[]
+  slTeam: { players: string[]; totalCredits: number; lowSelectionCount: number }
+  glTeam: { players: string[]; totalCredits: number; lowSelectionCount: number }
 }
 
 const POS_META: Array<{ key: Position; label: string; min: number; max: number }> = [
@@ -387,10 +393,9 @@ export default function ResearchPage() {
     const allPlayers = [...match.team1Players, ...match.team2Players]
     const results: Record<string, QuantumAnalysis> = {}
 
-    const recentForm: string[] = []
-    const bestFix: string[] = []
-    const differential: string[] = []
-    const captaincy: { id: string; score: number }[] = []
+    const topByForm: Player[] = []
+    const topByConsistency: Player[] = []
+    const topBySelection: Player[] = []
 
     allPlayers.forEach((player) => {
       // "Quantum" Algorithm combining credits, selection, and simulated external data
@@ -411,32 +416,122 @@ export default function ResearchPage() {
 
       // Recent Form: High credits (good history) + decent selection
       if (cred >= 8.5 && sel > 50) {
-        recentForm.push(player.id)
+        topByForm.push(player)
       }
 
       // Best Fix: Very high selection (Must haves)
       if (sel > 80) {
-        bestFix.push(player.id)
+        topByConsistency.push(player)
       }
 
       // Differential: Low selection but high potential (high credits)
       if (sel < 30 && cred > 8.0) {
-        differential.push(player.id)
+        topBySelection.push(player)
       }
-
-      captaincy.push({ id: player.id, score: quantumScore })
     })
 
+    const lowSelectionPlayers = allPlayers.filter((p) => Number(p.selectedBy || 0) < 50)
+    const lowSelectionSorted = [...lowSelectionPlayers].sort(
+      (a, b) => Number(b.selectedBy || 0) - Number(a.selectedBy || 0),
+    )
+
+    // SL Team: Mix of low selection with some established players
+    const slTeamPlayers: Player[] = []
+    const slTeamIds: string[] = []
+    let slTotalCredits = 0
+    let slLowCount = 0
+
+    // Pick 3-4 low selection players strategically
+    const slLowTargets = Math.min(4, Math.floor(lowSelectionSorted.length / 2))
+    for (let i = 0; i < slLowTargets && slLowCount < 4; i++) {
+      slTeamPlayers.push(lowSelectionSorted[i])
+      slTeamIds.push(lowSelectionSorted[i].id || `player_${i}`)
+      slTotalCredits += toNumCredit(lowSelectionSorted[i].credits)
+      slLowCount++
+    }
+
+    // Fill remaining slots with balanced players
+    const remainingSlots = 11 - slTeamPlayers.length
+    const balancedPlayers = allPlayers
+      .filter((p) => !slTeamIds.includes(p.id || ""))
+      .sort((a, b) => {
+        const aVal = toNumCredit(b.credits) / (Number(b.selectedBy || 1) + 1)
+        const bVal = toNumCredit(a.credits) / (Number(a.selectedBy || 1) + 1)
+        return aVal - bVal
+      })
+
+    for (let i = 0; i < remainingSlots && i < balancedPlayers.length; i++) {
+      if (slTotalCredits + toNumCredit(balancedPlayers[i].credits) <= 100) {
+        slTeamPlayers.push(balancedPlayers[i])
+        slTeamIds.push(balancedPlayers[i].id || `player_sl_${i}`)
+        slTotalCredits += toNumCredit(balancedPlayers[i].credits)
+      }
+    }
+
+    // GL Team: High potential gems with very low selection
+    const glTeamPlayers: Player[] = []
+    const glTeamIds: string[] = []
+    let glTotalCredits = 0
+    let glLowCount = 0
+
+    // Pick 3-4 very low selection players (under 30%)
+    const glVeryLow = lowSelectionSorted.filter((p) => Number(p.selectedBy || 0) < 30)
+    for (let i = 0; i < Math.min(4, glVeryLow.length); i++) {
+      glTeamPlayers.push(glVeryLow[i])
+      glTeamIds.push(glVeryLow[i].id || `player_gl_${i}`)
+      glTotalCredits += toNumCredit(glVeryLow[i].credits)
+      glLowCount++
+    }
+
+    // Fill with emerging talent (30-50% selection)
+    const emergingTalent = lowSelectionSorted.filter((p) => Number(p.selectedBy || 0) >= 30)
+    const remainingGlSlots = 11 - glTeamPlayers.length
+    for (let i = 0; i < remainingGlSlots && i < emergingTalent.length; i++) {
+      if (glTotalCredits + toNumCredit(emergingTalent[i].credits) <= 100) {
+        glTeamPlayers.push(emergingTalent[i])
+        glTeamIds.push(emergingTalent[i].id || `player_em_${i}`)
+        glTotalCredits += toNumCredit(emergingTalent[i].credits)
+      }
+    }
+
     setQuantumInsights({
-      recentFormPlayers: recentForm.sort(() => 0.5 - Math.random()).slice(0, 4),
-      bestFixPlayers: bestFix
-        .sort((a, b) => Number(results[b].quantumScore) - Number(results[a].quantumScore))
-        .slice(0, 5),
-      differentialPicks: differential.slice(0, 3),
-      captaincyCandidates: captaincy
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 3)
-        .map((c) => c.id),
+      recentFormPlayers: topByForm.slice(0, 4).map((p) => p.id || ""),
+      bestFixPlayers: topByConsistency.slice(0, 4).map((p) => p.id || ""),
+      differentialPicks: lowSelectionSorted.slice(0, 3).map((p) => p.id || ""),
+      captaincyCandidates: topBySelection.slice(0, 2).map((p) => p.id || ""),
+      topPicks: topBySelection.slice(0, 4).map((p) => ({
+        id: p.id || "",
+        score: (Number(p.selectedBy || 0) + toNumCredit(p.credits) * 2) / 3,
+      })),
+      valuablePlayers: allPlayers
+        .map((p) => ({
+          player: p,
+          valueRatio: toNumCredit(p.credits) > 0 ? (Number(p.selectedBy || 0) * 100) / toNumCredit(p.credits) : 0,
+        }))
+        .sort((a, b) => b.valueRatio - a.valueRatio)
+        .slice(0, 4)
+        .map(({ player }) => ({
+          id: player.id || "",
+          score: (Number(player.selectedBy || 0) * 100) / (toNumCredit(player.credits) || 1),
+        })),
+      captainPicks: topBySelection.slice(0, 2).map((p) => ({
+        id: p.id || "",
+        score: Number(p.selectedBy || 0) + 20,
+      })),
+      viceCaptainPicks: topBySelection.slice(2, 4).map((p) => ({
+        id: p.id || "",
+        score: Number(p.selectedBy || 0) + 10,
+      })),
+      slTeam: {
+        players: slTeamIds,
+        totalCredits: slTotalCredits,
+        lowSelectionCount: slLowCount,
+      },
+      glTeam: {
+        players: glTeamIds,
+        totalCredits: glTotalCredits,
+        lowSelectionCount: glLowCount,
+      },
     })
 
     setQuantumData(results)
@@ -640,6 +735,176 @@ export default function ResearchPage() {
                         <p className="text-blue-300">
                           Selection: {Number(player.selectedBy || 0).toFixed(1)}% | Venue Stats:{" "}
                           {insight?.ventueStats.toFixed(0)} | Credits: {player.credits}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-4">
+                <h3 className="text-yellow-400 font-bold mb-3">🎯 Top Pick Players</h3>
+                <div className="space-y-2">
+                  {quantumInsights.topPicks.map(({ id, score }) => {
+                    const player = [...(match?.team1Players || []), ...(match?.team2Players || [])].find(
+                      (p) => p.id === id,
+                    )
+                    if (!player) return null
+                    return (
+                      <div key={id} className="bg-slate-700/50 p-2 rounded text-xs">
+                        <p className="text-white font-semibold">{player.name}</p>
+                        <p className="text-yellow-300">
+                          Quantum Score: {score.toFixed(1)}% | Credits: {player.credits}
+                        </p>
+                        <p className="text-yellow-200">💡 High impact potential with balanced risk</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-purple-500/10 border border-purple-500/30 rounded p-4">
+                <h3 className="text-purple-400 font-bold mb-3">💎 Valuable Players (Best Value)</h3>
+                <div className="space-y-2">
+                  {quantumInsights.valuablePlayers.map(({ id, score }) => {
+                    const player = [...(match?.team1Players || []), ...(match?.team2Players || [])].find(
+                      (p) => p.id === id,
+                    )
+                    if (!player) return null
+                    return (
+                      <div key={id} className="bg-slate-700/50 p-2 rounded text-xs">
+                        <p className="text-white font-semibold">{player.name}</p>
+                        <p className="text-purple-300">
+                          Value Ratio: {score.toFixed(2)} | Credits: {player.credits}
+                        </p>
+                        <p className="text-purple-200">🌟 Excellent points per credit ratio</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-red-500/10 border border-red-500/30 rounded p-4">
+                <h3 className="text-red-400 font-bold mb-3">👑 Captain (C) Recommendations</h3>
+                <div className="space-y-2">
+                  {quantumInsights.captainPicks.map(({ id, score }) => {
+                    const player = [...(match?.team1Players || []), ...(match?.team2Players || [])].find(
+                      (p) => p.id === id,
+                    )
+                    if (!player) return null
+                    return (
+                      <div key={id} className="bg-slate-700/50 p-2 rounded text-xs">
+                        <p className="text-white font-semibold">{player.name} (C)</p>
+                        <p className="text-red-300">Impact Score: {score.toFixed(1)}% | Multiplier: 2x Points</p>
+                        <p className="text-red-200">🚀 Highest impact player - Double points multiplier</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-orange-500/10 border border-orange-500/30 rounded p-4">
+                <h3 className="text-orange-400 font-bold mb-3">📌 Vice Captain (VC) Recommendations</h3>
+                <div className="space-y-2">
+                  {quantumInsights.viceCaptainPicks.map(({ id, score }) => {
+                    const player = [...(match?.team1Players || []), ...(match?.team2Players || [])].find(
+                      (p) => p.id === id,
+                    )
+                    if (!player) return null
+                    return (
+                      <div key={id} className="bg-slate-700/50 p-2 rounded text-xs">
+                        <p className="text-white font-semibold">{player.name} (VC)</p>
+                        <p className="text-orange-300">Impact Score: {score.toFixed(1)}% | Multiplier: 1.5x Points</p>
+                        <p className="text-orange-200">⚡ Strong backup choice - 1.5x points multiplier</p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-indigo-500/10 border border-indigo-500/30 rounded p-4">
+                <h3 className="text-indigo-400 font-bold mb-3">🎪 SL Team (Specialist Low Picks) - 11 Players</h3>
+                <div className="bg-slate-700/50 p-3 rounded mb-3">
+                  <p className="text-indigo-300 text-xs mb-2">
+                    💡 Differential Strategy: Low selection players (under 50%) with high impact potential
+                  </p>
+                  <p className="text-white text-sm font-semibold">
+                    Total Credits: {quantumInsights.slTeam.totalCredits.toFixed(1)}/100
+                  </p>
+                  <p className="text-indigo-200 text-xs">
+                    Low Selection Players: {quantumInsights.slTeam.lowSelectionCount}/11
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  {quantumInsights.slTeam.players.map((playerId, index) => {
+                    const player = [...(match?.team1Players || []), ...(match?.team2Players || [])].find(
+                      (p) => p.id === playerId,
+                    )
+                    if (!player) return null
+                    const selection = Number(player.selectedBy || 0)
+                    const isCaptain = index === 0
+                    const isViceCaptain = index === 1
+                    const captainLabel = isCaptain ? " 👑 (C)" : isViceCaptain ? " ⭐ (VC)" : ""
+                    return (
+                      <div
+                        key={playerId}
+                        className={`bg-slate-700/50 p-2 rounded text-xs ${isCaptain ? "border-2 border-red-500" : isViceCaptain ? "border-2 border-orange-500" : ""}`}
+                      >
+                        <p className="text-white font-semibold">
+                          {index + 1}. {player.name}
+                          {captainLabel}
+                        </p>
+                        <p className="text-indigo-300">
+                          Selection: {selection.toFixed(1)}% | Credits: {player.credits} | Pos: {player.position}
+                        </p>
+                        <p className="text-indigo-200">
+                          {selection < 50 ? "🎯 Differential Pick" : "✅ Support Player"}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-cyan-500/10 border border-cyan-500/30 rounded p-4">
+                <h3 className="text-cyan-400 font-bold mb-3">💎 GL Team (Gem Low Growth) - 11 Players</h3>
+                <div className="bg-slate-700/50 p-3 rounded mb-3">
+                  <p className="text-cyan-300 text-xs mb-2">
+                    💡 Growth Strategy: Emerging players with low pick rate but high potential
+                  </p>
+                  <p className="text-white text-sm font-semibold">
+                    Total Credits: {quantumInsights.glTeam.totalCredits.toFixed(1)}/100
+                  </p>
+                  <p className="text-cyan-200 text-xs">
+                    Low Selection Players: {quantumInsights.glTeam.lowSelectionCount}/11
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  {quantumInsights.glTeam.players.map((playerId, index) => {
+                    const player = [...(match?.team1Players || []), ...(match?.team2Players || [])].find(
+                      (p) => p.id === playerId,
+                    )
+                    if (!player) return null
+                    const selection = Number(player.selectedBy || 0)
+                    const insight = playerInsights[playerId]
+                    const isCaptain = index === 0
+                    const isViceCaptain = index === 1
+                    const captainLabel = isCaptain ? " 👑 (C)" : isViceCaptain ? " ⭐ (VC)" : ""
+                    return (
+                      <div
+                        key={playerId}
+                        className={`bg-slate-700/50 p-2 rounded text-xs ${isCaptain ? "border-2 border-red-500" : isViceCaptain ? "border-2 border-orange-500" : ""}`}
+                      >
+                        <p className="text-white font-semibold">
+                          {index + 1}. {player.name}
+                          {captainLabel}
+                        </p>
+                        <p className="text-cyan-300">
+                          Selection: {selection.toFixed(1)}% | Credits: {player.credits} | H2H:{" "}
+                          {insight?.h2hAverage.toFixed(1)} | Pos: {player.position}
+                        </p>
+                        <p className="text-cyan-200">
+                          {selection < 50 ? "🚀 High Growth Potential" : "📈 Rising Star"}
                         </p>
                       </div>
                     )
