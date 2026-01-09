@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,26 +10,41 @@ import Link from "next/link"
 import { generateDream11Hash, generateTeamHash } from "@/lib/hash-generator"
 
 export default function HashGenerationPage() {
-  const [matchId, setMatchId] = useState("PK-W-vs-SA-W-ODI-2024")
+  const searchParams = useSearchParams()
+  const matchId = searchParams.get("matchId")
+
+  const [matchIdentifier, setMatchIdentifier] = useState("")
   const [hashValue, setHashValue] = useState("")
   const [teamHash, setTeamHash] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
 
+  useEffect(() => {
+    if (matchId) {
+      const matches = JSON.parse(localStorage.getItem("adminMatches") || "[]")
+      const match = matches.find((m: any) => m.id === matchId)
+      if (match) {
+        setMatchIdentifier(`${match.team1}-vs-${match.team2}-${match.matchType || "T20"}`)
+      }
+    }
+  }, [matchId])
+
   const generateHash = async () => {
-    if (!matchId.trim()) return
+    if (!matchIdentifier.trim()) return
 
     setIsGenerating(true)
 
-    // Simulate API call delay
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
-    const dream11Hash = generateDream11Hash(matchId)
+    const savedPlayers = localStorage.getItem(`selectedPlayers_${matchId}`)
+    const selectedPlayers = savedPlayers ? JSON.parse(savedPlayers) : []
+
+    const dream11Hash = generateDream11Hash(matchIdentifier)
     const teamGenerationHash = generateTeamHash({
-      matchId,
-      selectedPlayers: ["1", "2", "5", "6"], // Mock selected players
-      strategies: ["smart-generation"], // Mock strategies
+      matchId: matchIdentifier,
+      selectedPlayers: selectedPlayers.map((p: any) => p.id),
+      strategies: ["smart-generation"],
       creditRange: { min: 83.5, max: 88.5 },
-      teamPartition: [{ pkw: 4, saw: 7 }],
+      teamPartition: [{ team1: 4, team2: 7 }],
     })
 
     setHashValue(dream11Hash)
@@ -47,7 +63,7 @@ export default function HashGenerationPage() {
 
   const handleContinue = () => {
     if (hashValue && teamHash) {
-      window.location.href = "/team-management"
+      window.location.href = `/team-management?matchId=${matchId}`
     }
   }
 
@@ -60,7 +76,7 @@ export default function HashGenerationPage() {
             variant="ghost"
             size="icon"
             className="text-primary-foreground"
-            onClick={() => (window.location.href = "/team-strategies")}
+            onClick={() => (window.location.href = `/team-strategies?matchId=${matchId}`)}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -98,14 +114,19 @@ export default function HashGenerationPage() {
                 <label className="block text-sm font-medium mb-2">Match ID</label>
                 <Input
                   type="text"
-                  value={matchId}
-                  onChange={(e) => setMatchId(e.target.value)}
+                  value={matchIdentifier}
+                  onChange={(e) => setMatchIdentifier(e.target.value)}
                   placeholder="Enter Match ID"
                   className="w-full"
                 />
               </div>
 
-              <Button onClick={generateHash} disabled={!matchId.trim() || isGenerating} className="w-full" size="lg">
+              <Button
+                onClick={generateHash}
+                disabled={!matchIdentifier.trim() || isGenerating}
+                className="w-full"
+                size="lg"
+              >
                 {isGenerating ? "Generating..." : "Generate Hash"}
               </Button>
 
@@ -156,7 +177,7 @@ export default function HashGenerationPage() {
               Instructions:
             </h3>
             <ol className="text-sm space-y-1 list-decimal list-inside text-muted-foreground">
-              <li>Enter the Match ID from Dream11</li>
+              <li>Match ID is auto-filled from your selection</li>
               <li>Click on Generate Hash button</li>
               <li>Copy the generated hash values</li>
               <li>Use Dream11 hash for team verification</li>
@@ -175,7 +196,7 @@ export default function HashGenerationPage() {
         {/* Footer */}
         <div className="mt-8 text-center space-y-2">
           <p className="text-sm font-medium">
-            Developed By <span className="text-green-600">Believer01</span> 📺
+            Developed By <span className="text-green-600">Believer01</span>
           </p>
           <p className="text-xs text-muted-foreground">Refer your friends for benefits</p>
         </div>

@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Trophy, ArrowLeft, Home, Lightbulb, TrendingUp } from "lucide-react"
@@ -41,17 +42,18 @@ const generationTypes: GenerationType[] = [
 ]
 
 export default function SelectGenerationPage() {
+  const searchParams = useSearchParams()
+  const matchId = searchParams.get("matchId")
+
   const [selectedType, setSelectedType] = useState<string | null>(null)
 
   const handleTypeSelect = (typeId: string) => {
     setSelectedType(typeId)
   }
 
-  const handleContinue = () => {
-    if (selectedType) {
-      // Navigate to credit range selection
-      window.location.href = "/credit-range"
-    }
+  const handleContinue = (typeId: string) => {
+    localStorage.setItem(`generationType_${matchId}`, typeId)
+    window.location.href = `/credit-range?matchId=${matchId}`
   }
 
   return (
@@ -102,7 +104,15 @@ export default function SelectGenerationPage() {
                     <p className="text-sm text-muted-foreground">{type.subtitle}</p>
                   </div>
                 </div>
-                <Button className="w-full bg-green-600 hover:bg-green-700 text-white">Continue</Button>
+                <Button
+                  className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleContinue(type.id)
+                  }}
+                >
+                  Continue
+                </Button>
               </CardContent>
             </Card>
           ))}
@@ -111,7 +121,7 @@ export default function SelectGenerationPage() {
         {/* Footer */}
         <div className="mt-8 text-center space-y-2">
           <p className="text-sm font-medium">
-            Developed By <span className="text-green-600">Believer01</span> 📺
+            Developed By <span className="text-green-600">Believer01</span>
           </p>
           <p className="text-xs text-muted-foreground">Refer your friends for benefits</p>
         </div>

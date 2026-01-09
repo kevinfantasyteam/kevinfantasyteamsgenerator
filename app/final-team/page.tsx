@@ -1,69 +1,106 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Trophy, ArrowLeft, Home, Hash, Copy, Share, Download, RefreshCw } from "lucide-react"
 import Link from "next/link"
-import { mockPlayers } from "@/lib/players"
 import { generateDream11Hash } from "@/lib/hash-generator"
+
+interface Player {
+  id: string
+  name: string
+  team: string
+  position: string
+  credits: number
+  selectedBy: number
+  avatar?: string
+}
 
 interface GeneratedTeam {
   id: string
   captain: string
   viceCaptain: string
-  players: typeof mockPlayers
+  players: Player[]
   totalCredits: number
   hash: string
 }
 
 export default function FinalTeamPage() {
+  const searchParams = useSearchParams()
+  const matchId = searchParams.get("matchId")
+
   const [generatedTeams, setGeneratedTeams] = useState<GeneratedTeam[]>([])
   const [currentTeamIndex, setCurrentTeamIndex] = useState(0)
   const [isGenerating, setIsGenerating] = useState(true)
+  const [matchInfo, setMatchInfo] = useState<{ team1: string; team2: string } | null>(null)
 
   useEffect(() => {
-    generateTeams()
-  }, [])
+    loadMatchAndGenerateTeams()
+  }, [matchId])
 
-  const generateTeams = async () => {
+  const loadMatchAndGenerateTeams = async () => {
     setIsGenerating(true)
 
-    // Simulate team generation process
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    const matches = JSON.parse(localStorage.getItem("adminMatches") || "[]")
+    const match = matches.find((m: any) => m.id === matchId)
 
-    const teams: GeneratedTeam[] = [
-      {
-        id: "team-1",
-        captain: "L Wolvaart",
-        viceCaptain: "M Ali",
-        players: [
-          mockPlayers[0], // M Ali (WK)
-          mockPlayers[4], // L Wolvaart (BAT)
-          mockPlayers[5], // T Brits (BAT)
-          mockPlayers[6], // A Dercksen (BAT)
-        ],
-        totalCredits: 37.5,
-        hash: generateDream11Hash("PK-W-vs-SA-W-ODI-2024"),
-      },
-      {
-        id: "team-2",
-        captain: "T Brits",
-        viceCaptain: "A Dercksen",
-        players: [
-          mockPlayers[1], // S Jafta (WK)
-          mockPlayers[4], // L Wolvaart (BAT)
-          mockPlayers[5], // T Brits (BAT)
-          mockPlayers[7], // A Riaz (BAT)
-        ],
-        totalCredits: 33.5,
-        hash: generateDream11Hash("PK-W-vs-SA-W-ODI-2024"),
-      },
-    ]
+    if (match) {
+      setMatchInfo({ team1: match.team1, team2: match.team2 })
 
-    setGeneratedTeams(teams)
+      // Load selected players
+      const savedPlayers = localStorage.getItem(`selectedPlayers_${matchId}`)
+      const players: Player[] = savedPlayers ? JSON.parse(savedPlayers) : match.players || []
+
+      // Load captain/vc selections
+      const captainSelData = localStorage.getItem(`captainSelection_${matchId}`)
+      const captainSel = captainSelData ? JSON.parse(captainSelData) : { captain: null, viceCaptain: null }
+
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+
+      // Generate teams using actual player data
+      const teams: GeneratedTeam[] = generateTeamsFromPlayers(players, captainSel, match)
+      setGeneratedTeams(teams)
+    }
+
     setIsGenerating(false)
+  }
+
+  const generateTeamsFromPlayers = (
+    players: Player[],
+    captainSel: { captain: string | null; viceCaptain: string | null },
+    match: any,
+  ): GeneratedTeam[] => {
+    const teams: GeneratedTeam[] = []
+    const matchIdentifier = `${match.team1}-vs-${match.team2}`
+
+    // Generate 3-5 team variations
+    for (let i = 0; i < Math.min(5, Math.max(1, Math.floor(players.length / 3))); i++) {
+      const shuffled = [...players].sort(() => Math.random() - 0.5)
+      const teamPlayers = shuffled.slice(0, 11)
+
+      // Determine captain and vice-captain
+      const captain = captainSel.captain || teamPlayers[0]?.name
+      let viceCaptain = captainSel.viceCaptain || teamPlayers[1]?.name
+
+      // Ensure C and VC are different
+      if (captain === viceCaptain && teamPlayers.length > 1) {
+        viceCaptain = teamPlayers.find((p) => p.name !== captain)?.name || teamPlayers[1]?.name
+      }
+
+      teams.push({
+        id: `team-${i + 1}`,
+        captain: captain || "Not Selected",
+        viceCaptain: viceCaptain || "Not Selected",
+        players: teamPlayers,
+        totalCredits: teamPlayers.reduce((sum, p) => sum + p.credits, 0),
+        hash: generateDream11Hash(`${matchIdentifier}-${i}-${Date.now()}`),
+      })
+    }
+
+    return teams
   }
 
   const copyHash = async (hash: string) => {
@@ -133,7 +170,10 @@ export default function FinalTeamPage() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-semibold mb-2">No teams generated</h2>
-          <Button onClick={generateTeams}>Generate Teams</Button>
+          <p className="text-muted-foreground mb-4">Please select players first</p>
+          <Link href={matchId ? `/player-selection?matchId=${matchId}` : "/"}>
+            <Button>Go to Player Selection</Button>
+          </Link>
         </div>
       </div>
     )
@@ -144,19 +184,16 @@ export default function FinalTeamPage() {
       {/* Header */}
       <div className="bg-primary text-primary-foreground p-4">
         <div className="flex items-center justify-between max-w-md mx-auto">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-primary-foreground"
-            onClick={() => (window.location.href = "/team-management")}
-          >
+          <Button variant="ghost" size="icon" className="text-primary-foreground" onClick={() => window.history.back()}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex items-center gap-2">
             <Trophy className="h-6 w-6 text-yellow-400" />
             <div className="text-center">
               <h1 className="font-bold text-lg">Generated Teams</h1>
-              <p className="text-sm opacity-90">Hash-Based Creation</p>
+              <p className="text-sm opacity-90">
+                {matchInfo ? `${matchInfo.team1} vs ${matchInfo.team2}` : "Hash-Based Creation"}
+              </p>
             </div>
           </div>
           <Link href="/">
@@ -235,20 +272,20 @@ export default function FinalTeamPage() {
         {/* Players List */}
         <Card className="mb-4">
           <CardContent className="p-4">
-            <h3 className="font-medium mb-3">Selected Players</h3>
+            <h3 className="font-medium mb-3">Selected Players ({currentTeam.players.length})</h3>
             <div className="space-y-3">
               {currentTeam.players.map((player) => (
                 <div key={player.id} className="flex items-center gap-3">
                   <div className="relative">
                     <img
-                      src={player.avatar || "/placeholder.svg"}
+                      src={player.avatar || "/placeholder.svg?height=32&width=32&query=cricket player"}
                       alt={player.name}
                       className="w-8 h-8 rounded-full object-cover"
                     />
                     <Badge
                       variant="secondary"
                       className={`absolute -bottom-1 -right-1 text-xs px-1 py-0 ${
-                        player.team === "PK-W" ? "bg-green-600 text-white" : "bg-blue-600 text-white"
+                        player.team === matchInfo?.team1 ? "bg-green-600 text-white" : "bg-blue-600 text-white"
                       }`}
                     >
                       {player.position}
@@ -277,7 +314,7 @@ export default function FinalTeamPage() {
             <div className="border-t pt-3 mt-3">
               <div className="flex justify-between items-center">
                 <span className="font-medium">Total Credits:</span>
-                <span className="font-bold">{currentTeam.totalCredits}</span>
+                <span className="font-bold">{currentTeam.totalCredits.toFixed(1)}</span>
               </div>
             </div>
           </CardContent>
@@ -293,7 +330,7 @@ export default function FinalTeamPage() {
             <Download className="h-4 w-4 mr-2" />
             Download
           </Button>
-          <Button variant="outline" onClick={generateTeams} className="bg-transparent">
+          <Button variant="outline" onClick={loadMatchAndGenerateTeams} className="bg-transparent">
             <RefreshCw className="h-4 w-4 mr-2" />
             Regenerate
           </Button>
@@ -313,7 +350,7 @@ export default function FinalTeamPage() {
         {/* Footer */}
         <div className="mt-8 text-center space-y-2">
           <p className="text-sm font-medium">
-            Developed By <span className="text-green-600">Believer01</span> 📺
+            Developed By <span className="text-green-600">Believer01</span>
           </p>
           <p className="text-xs text-muted-foreground">Refer your friends for benefits</p>
         </div>

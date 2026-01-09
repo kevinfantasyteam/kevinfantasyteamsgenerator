@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Trophy, ArrowLeft, Home, Plus } from "lucide-react"
+import { Trophy, ArrowLeft, Home, Plus, Check } from "lucide-react"
 import Link from "next/link"
 
 type StrategyType = "player-percentage" | "team-combinations"
@@ -19,7 +20,7 @@ interface TeamCombination {
   id: string
   wk: number
   bat: number
-  al: number
+  all: number // Changed from "al" to "all" for consistency
   bow: number
 }
 
@@ -32,40 +33,58 @@ const playerPercentagePatterns: PlayerPercentagePattern[] = [
 ]
 
 const teamCombinations: TeamCombination[] = [
-  { id: "1", wk: 1, bat: 3, al: 2, bow: 5 },
-  { id: "2", wk: 1, bat: 3, al: 3, bow: 4 },
-  { id: "3", wk: 1, bat: 4, al: 3, bow: 3 },
-  { id: "4", wk: 1, bat: 4, al: 2, bow: 4 },
-  { id: "5", wk: 1, bat: 5, al: 2, bow: 3 },
-  { id: "6", wk: 1, bat: 3, al: 4, bow: 3 },
-  { id: "7", wk: 2, bat: 3, al: 3, bow: 3 },
-  { id: "8", wk: 2, bat: 3, al: 2, bow: 4 },
-  { id: "9", wk: 2, bat: 4, al: 2, bow: 3 },
-  { id: "10", wk: 3, bat: 3, al: 2, bow: 3 },
+  { id: "1", wk: 1, bat: 3, all: 2, bow: 5 },
+  { id: "2", wk: 1, bat: 3, all: 3, bow: 4 },
+  { id: "3", wk: 1, bat: 4, all: 3, bow: 3 },
+  { id: "4", wk: 1, bat: 4, all: 2, bow: 4 },
+  { id: "5", wk: 1, bat: 5, all: 2, bow: 3 },
+  { id: "6", wk: 1, bat: 3, all: 4, bow: 3 },
+  { id: "7", wk: 2, bat: 3, all: 3, bow: 3 },
+  { id: "8", wk: 2, bat: 3, all: 2, bow: 4 },
+  { id: "9", wk: 2, bat: 4, all: 2, bow: 3 },
+  { id: "10", wk: 3, bat: 3, all: 2, bow: 3 },
 ]
 
 export default function TeamStrategiesPage() {
+  const searchParams = useSearchParams()
+  const matchId = searchParams.get("matchId")
+
   const [currentStrategy, setCurrentStrategy] = useState<StrategyType>("player-percentage")
   const [selectedPatterns, setSelectedPatterns] = useState<string[]>([])
   const [selectedCombinations, setSelectedCombinations] = useState<string[]>([])
 
+  useEffect(() => {
+    if (matchId) {
+      const savedPatterns = localStorage.getItem(`patterns_${matchId}`)
+      const savedCombinations = localStorage.getItem(`combinations_${matchId}`)
+      if (savedPatterns) setSelectedPatterns(JSON.parse(savedPatterns))
+      if (savedCombinations) setSelectedCombinations(JSON.parse(savedCombinations))
+    }
+  }, [matchId])
+
   const handlePatternSelect = (patternId: string) => {
-    setSelectedPatterns((prev) =>
-      prev.includes(patternId) ? prev.filter((id) => id !== patternId) : [...prev, patternId],
-    )
+    setSelectedPatterns((prev) => {
+      const newPatterns = prev.includes(patternId) ? prev.filter((id) => id !== patternId) : [...prev, patternId]
+      localStorage.setItem(`patterns_${matchId}`, JSON.stringify(newPatterns))
+      return newPatterns
+    })
   }
 
   const handleCombinationSelect = (combinationId: string) => {
-    setSelectedCombinations((prev) =>
-      prev.includes(combinationId) ? prev.filter((id) => id !== combinationId) : [...prev, combinationId],
-    )
+    setSelectedCombinations((prev) => {
+      const newCombinations = prev.includes(combinationId)
+        ? prev.filter((id) => id !== combinationId)
+        : [...prev, combinationId]
+      localStorage.setItem(`combinations_${matchId}`, JSON.stringify(newCombinations))
+      return newCombinations
+    })
   }
 
   const handleContinue = () => {
     if (currentStrategy === "player-percentage") {
       setCurrentStrategy("team-combinations")
     } else {
-      window.location.href = "/hash-generation"
+      window.location.href = `/hash-generation?matchId=${matchId}`
     }
   }
 
@@ -73,7 +92,7 @@ export default function TeamStrategiesPage() {
     if (currentStrategy === "player-percentage") {
       setCurrentStrategy("team-combinations")
     } else {
-      window.location.href = "/hash-generation"
+      window.location.href = `/hash-generation?matchId=${matchId}`
     }
   }
 
@@ -87,7 +106,7 @@ export default function TeamStrategiesPage() {
               variant="ghost"
               size="icon"
               className="text-primary-foreground"
-              onClick={() => (window.location.href = "/player-selection")}
+              onClick={() => (window.location.href = `/player-selection?matchId=${matchId}`)}
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
@@ -131,36 +150,42 @@ export default function TeamStrategiesPage() {
 
           {/* Pattern Options */}
           <div className="space-y-3 mb-6">
-            {playerPercentagePatterns.map((pattern) => (
-              <div key={pattern.id} className="bg-card rounded-lg p-4 border">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium">{pattern.lowRange}</span>
-                      <span className="text-lg font-bold">{pattern.lowCount}</span>
+            {playerPercentagePatterns.map((pattern) => {
+              const isSelected = selectedPatterns.includes(pattern.id)
+              return (
+                <div
+                  key={pattern.id}
+                  className={`bg-card rounded-lg p-4 border ${isSelected ? "ring-2 ring-primary" : ""}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium">{pattern.lowRange}</span>
+                        <span className="text-lg font-bold">{pattern.lowCount}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium">{pattern.highRange}</span>
+                        <span className="text-lg font-bold">{pattern.highCount}</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">{pattern.highRange}</span>
-                      <span className="text-lg font-bold">{pattern.highCount}</span>
-                    </div>
+                    <Button
+                      size="sm"
+                      variant={isSelected ? "default" : "outline"}
+                      className={`w-8 h-8 p-0 ml-4 ${isSelected ? "" : "bg-transparent"}`}
+                      onClick={() => handlePatternSelect(pattern.id)}
+                    >
+                      {isSelected ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                    </Button>
                   </div>
-                  <Button
-                    size="sm"
-                    variant={selectedPatterns.includes(pattern.id) ? "default" : "outline"}
-                    className="w-8 h-8 p-0 ml-4 bg-transparent"
-                    onClick={() => handlePatternSelect(pattern.id)}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {/* Action Buttons */}
           <div className="flex gap-3 mb-6">
             <Button variant="secondary" className="flex-1">
-              💡 Suggestion
+              Suggestion
             </Button>
             <Button variant="outline" onClick={handleSkip} className="flex-1 bg-transparent">
               Skip
@@ -222,49 +247,55 @@ export default function TeamStrategiesPage() {
           </Button>
         </div>
 
-        {/* Team Combinations */}
+        {/* Team Combinations - Updated labels to ALL instead of AL */}
         <div className="space-y-3 mb-6">
-          {teamCombinations.map((combination) => (
-            <div key={combination.id} className="bg-card rounded-lg p-4 border">
-              <div className="flex items-center justify-between">
-                <div className="flex gap-6">
-                  <div className="text-center">
-                    <div className="text-xs text-muted-foreground mb-1">WK</div>
-                    <div className="text-lg font-bold">{combination.wk}</div>
+          {teamCombinations.map((combination) => {
+            const isSelected = selectedCombinations.includes(combination.id)
+            return (
+              <div
+                key={combination.id}
+                className={`bg-card rounded-lg p-4 border ${isSelected ? "ring-2 ring-primary" : ""}`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-6">
+                    <div className="text-center">
+                      <div className="text-xs text-muted-foreground mb-1">WK</div>
+                      <div className="text-lg font-bold">{combination.wk}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs text-muted-foreground mb-1">BAT</div>
+                      <div className="text-lg font-bold">{combination.bat}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs text-muted-foreground mb-1">ALL</div>
+                      <div className="text-lg font-bold">{combination.all}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-xs text-muted-foreground mb-1">BOW</div>
+                      <div className="text-lg font-bold">{combination.bow}</div>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-xs text-muted-foreground mb-1">BAT</div>
-                    <div className="text-lg font-bold">{combination.bat}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xs text-muted-foreground mb-1">AL</div>
-                    <div className="text-lg font-bold">{combination.al}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-xs text-muted-foreground mb-1">BOW</div>
-                    <div className="text-lg font-bold">{combination.bow}</div>
-                  </div>
+                  <Button
+                    size="sm"
+                    variant={isSelected ? "default" : "outline"}
+                    className={`w-8 h-8 p-0 ${isSelected ? "" : "bg-transparent"}`}
+                    onClick={() => handleCombinationSelect(combination.id)}
+                  >
+                    {isSelected ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  </Button>
                 </div>
-                <Button
-                  size="sm"
-                  variant={selectedCombinations.includes(combination.id) ? "default" : "outline"}
-                  className="w-8 h-8 p-0 bg-transparent"
-                  onClick={() => handleCombinationSelect(combination.id)}
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Action Buttons */}
         <div className="flex gap-3 mb-6">
           <Button variant="outline" className="flex-1 bg-transparent">
-            ⚙️ Custom
+            Custom
           </Button>
           <Button variant="secondary" className="flex-1">
-            💡 Suggestion
+            Suggestion
           </Button>
           <Button onClick={handleContinue} className="flex-1">
             Continue
