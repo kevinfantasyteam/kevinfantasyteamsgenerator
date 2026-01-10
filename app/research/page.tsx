@@ -468,29 +468,41 @@ export default function ResearchPage() {
       }
     }
 
-    // GL Team: High potential gems with very low selection
+    // GL Team: Mixed strategy - 5 Recent Form + 4 Best Fix + 2 Differential Picks = 11 Players
     const glTeamPlayers: Player[] = []
     const glTeamIds: string[] = []
     let glTotalCredits = 0
     let glLowCount = 0
 
-    // Pick 3-4 very low selection players (under 30%)
-    const glVeryLow = lowSelectionSorted.filter((p) => Number(p.selectedBy || 0) < 30)
-    for (let i = 0; i < Math.min(4, glVeryLow.length); i++) {
-      glTeamPlayers.push(glVeryLow[i])
-      glTeamIds.push(glVeryLow[i].id || `player_gl_${i}`)
-      glTotalCredits += toNumCredit(glVeryLow[i].credits)
-      glLowCount++
+    const recentFormPlayers = topByForm.slice(0, 5)
+    for (let i = 0; i < recentFormPlayers.length && glTeamPlayers.length < 11; i++) {
+      if (!glTeamPlayers.some((p) => p.id === recentFormPlayers[i].id)) {
+        glTeamPlayers.push(recentFormPlayers[i])
+        glTeamIds.push(recentFormPlayers[i].id || `player_rf_${i}`)
+        glTotalCredits += toNumCredit(recentFormPlayers[i].credits)
+      }
     }
 
-    // Fill with emerging talent (30-50% selection)
-    const emergingTalent = lowSelectionSorted.filter((p) => Number(p.selectedBy || 0) >= 30)
-    const remainingGlSlots = 11 - glTeamPlayers.length
-    for (let i = 0; i < remainingGlSlots && i < emergingTalent.length; i++) {
-      if (glTotalCredits + toNumCredit(emergingTalent[i].credits) <= 100) {
-        glTeamPlayers.push(emergingTalent[i])
-        glTeamIds.push(emergingTalent[i].id || `player_em_${i}`)
-        glTotalCredits += toNumCredit(emergingTalent[i].credits)
+    const bestFixPlayers = topByConsistency.slice(0, 4)
+    for (let i = 0; i < bestFixPlayers.length && glTeamPlayers.length < 11; i++) {
+      if (!glTeamPlayers.some((p) => p.id === bestFixPlayers[i].id)) {
+        glTeamPlayers.push(bestFixPlayers[i])
+        glTeamIds.push(bestFixPlayers[i].id || `player_bf_${i}`)
+        glTotalCredits += toNumCredit(bestFixPlayers[i].credits)
+        // Count if this is a low selection player
+        if (Number(bestFixPlayers[i].selectedBy || 0) < 50) {
+          glLowCount++
+        }
+      }
+    }
+
+    const differentialCandidates = lowSelectionSorted.filter((p) => !glTeamPlayers.some((tp) => tp.id === p.id))
+    for (let i = 0; i < differentialCandidates.length && glTeamPlayers.length < 11; i++) {
+      if (glTotalCredits + toNumCredit(differentialCandidates[i].credits) <= 100) {
+        glTeamPlayers.push(differentialCandidates[i])
+        glTeamIds.push(differentialCandidates[i].id || `player_diff_${i}`)
+        glTotalCredits += toNumCredit(differentialCandidates[i].credits)
+        glLowCount++
       }
     }
 
