@@ -438,21 +438,23 @@ export default function ResearchPage() {
     // SL Team: Mix of low selection with some established players
     const slTeamPlayers: Player[] = []
     const slTeamIds: string[] = []
+    const slPositions = { WK: 0, BAT: 0, ALL: 0, BOW: 0 }
+    const slMaxPositions = { WK: 3, BAT: 5, ALL: 6, BOW: 6 }
     let slTotalCredits = 0
-    let slLowCount = 0
 
-    // Pick 3-4 low selection players strategically
     const slLowTargets = Math.min(4, Math.floor(lowSelectionSorted.length / 2))
-    for (let i = 0; i < slLowTargets && slLowCount < 4; i++) {
-      slTeamPlayers.push(lowSelectionSorted[i])
-      slTeamIds.push(lowSelectionSorted[i].id || `player_${i}`)
-      slTotalCredits += toNumCredit(lowSelectionSorted[i].credits)
-      slLowCount++
+    for (let i = 0; i < slLowTargets && slTeamPlayers.length < 11; i++) {
+      const player = lowSelectionSorted[i]
+      const pos = (player.position || "BAT") as keyof typeof slMaxPositions
+      if (slPositions[pos] < slMaxPositions[pos]) {
+        slTeamPlayers.push(player)
+        slTeamIds.push(player.id || `player_${i}`)
+        slPositions[pos]++
+        slTotalCredits += toNumCredit(player.credits)
+      }
     }
 
-    // Fill remaining slots with balanced players
-    const remainingSlots = 11 - slTeamPlayers.length
-    const balancedPlayers = allPlayers
+    const slBalancedPlayers = allPlayers
       .filter((p) => !slTeamIds.includes(p.id || ""))
       .sort((a, b) => {
         const aVal = toNumCredit(b.credits) / (Number(b.selectedBy || 1) + 1)
@@ -460,59 +462,66 @@ export default function ResearchPage() {
         return aVal - bVal
       })
 
-    for (let i = 0; i < remainingSlots && i < balancedPlayers.length; i++) {
-      if (slTotalCredits + toNumCredit(balancedPlayers[i].credits) <= 100) {
-        slTeamPlayers.push(balancedPlayers[i])
-        slTeamIds.push(balancedPlayers[i].id || `player_sl_${i}`)
-        slTotalCredits += toNumCredit(balancedPlayers[i].credits)
+    for (let i = 0; i < slBalancedPlayers.length && slTeamPlayers.length < 11; i++) {
+      const player = slBalancedPlayers[i]
+      const pos = (player.position || "BAT") as keyof typeof slMaxPositions
+      if (slPositions[pos] < slMaxPositions[pos] && slTotalCredits + toNumCredit(player.credits) <= 100) {
+        slTeamPlayers.push(player)
+        slTeamIds.push(player.id || `player_sl_${i}`)
+        slPositions[pos]++
+        slTotalCredits += toNumCredit(player.credits)
       }
     }
 
-    // GL Team: Mixed strategy - 5 Recent Form + 4 Best Fix + 2 Differential Picks = 11 Players
+    // GL Team: Mixed strategy with position constraints
     const glTeamPlayers: Player[] = []
     const glTeamIds: string[] = []
+    const glPositions = { WK: 0, BAT: 0, ALL: 0, BOW: 0 }
+    const glMaxPositions = { WK: 3, BAT: 5, ALL: 6, BOW: 6 }
     let glTotalCredits = 0
-    let glLowCount = 0
 
-    // Step 1: Add 5 Recent Form Players (high credits + decent selection)
     const recentFormPlayers = topByForm.slice(0, 5)
     for (let i = 0; i < recentFormPlayers.length && glTeamPlayers.length < 11; i++) {
-      if (!glTeamPlayers.some((p) => p.id === recentFormPlayers[i].id)) {
-        glTeamPlayers.push(recentFormPlayers[i])
-        glTeamIds.push(recentFormPlayers[i].id || `player_rf_${i}`)
-        glTotalCredits += toNumCredit(recentFormPlayers[i].credits)
+      const player = recentFormPlayers[i]
+      const pos = (player.position || "BAT") as keyof typeof glMaxPositions
+      if (glPositions[pos] < glMaxPositions[pos]) {
+        glTeamPlayers.push(player)
+        glTeamIds.push(player.id || `player_${i}`)
+        glPositions[pos]++
+        glTotalCredits += toNumCredit(player.credits)
       }
     }
 
-    // Step 2: Add 4 Best Fix Players (very high selection rate - must haves)
     const bestFixPlayers = topByConsistency.slice(0, 4)
     for (let i = 0; i < bestFixPlayers.length && glTeamPlayers.length < 11; i++) {
-      if (!glTeamPlayers.some((p) => p.id === bestFixPlayers[i].id)) {
-        glTeamPlayers.push(bestFixPlayers[i])
-        glTeamIds.push(bestFixPlayers[i].id || `player_bf_${i}`)
-        glTotalCredits += toNumCredit(bestFixPlayers[i].credits)
-        if (Number(bestFixPlayers[i].selectedBy || 0) < 50) {
-          glLowCount++
+      const player = bestFixPlayers[i]
+      if (!glTeamIds.includes(player.id || "")) {
+        const pos = (player.position || "BAT") as keyof typeof glMaxPositions
+        if (glPositions[pos] < glMaxPositions[pos]) {
+          glTeamPlayers.push(player)
+          glTeamIds.push(player.id || `player_${i}`)
+          glPositions[pos]++
+          glTotalCredits += toNumCredit(player.credits)
         }
       }
     }
 
-    // Step 3: Fill remaining slots with low selection players (differential picks)
-    const differentialCandidates = lowSelectionSorted.filter((p) => !glTeamIds.includes(p.id || ""))
-    for (let i = 0; i < differentialCandidates.length && glTeamPlayers.length < 11; i++) {
-      glTeamPlayers.push(differentialCandidates[i])
-      glTeamIds.push(differentialCandidates[i].id || `player_diff_${i}`)
-      glTotalCredits += toNumCredit(differentialCandidates[i].credits)
-      glLowCount++
-    }
+    const glRemainingPlayers = allPlayers
+      .filter((p) => !glTeamIds.includes(p.id || ""))
+      .sort((a, b) => {
+        const aVal = toNumCredit(b.credits) / (Number(b.selectedBy || 1) + 1)
+        const bVal = toNumCredit(a.credits) / (Number(a.selectedBy || 1) + 1)
+        return aVal - bVal
+      })
 
-    // Step 4: If still not 11 players, fill with any remaining players
-    if (glTeamPlayers.length < 11) {
-      const remainingPlayers = allPlayers.filter((p) => !glTeamIds.includes(p.id || ""))
-      for (let i = 0; i < remainingPlayers.length && glTeamPlayers.length < 11; i++) {
-        glTeamPlayers.push(remainingPlayers[i])
-        glTeamIds.push(remainingPlayers[i].id || `player_fill_${i}`)
-        glTotalCredits += toNumCredit(remainingPlayers[i].credits)
+    for (let i = 0; i < glRemainingPlayers.length && glTeamPlayers.length < 11; i++) {
+      const player = glRemainingPlayers[i]
+      const pos = (player.position || "BAT") as keyof typeof glMaxPositions
+      if (glPositions[pos] < glMaxPositions[pos]) {
+        glTeamPlayers.push(player)
+        glTeamIds.push(player.id || `player_${i}`)
+        glPositions[pos]++
+        glTotalCredits += toNumCredit(player.credits)
       }
     }
 
@@ -547,12 +556,12 @@ export default function ResearchPage() {
       slTeam: {
         players: slTeamIds,
         totalCredits: slTotalCredits,
-        lowSelectionCount: slLowCount,
+        lowSelectionCount: lowSelectionSorted.length,
       },
       glTeam: {
         players: glTeamIds,
         totalCredits: glTotalCredits,
-        lowSelectionCount: glLowCount,
+        lowSelectionCount: glRemainingPlayers.length,
       },
     })
 
