@@ -474,6 +474,7 @@ export default function ResearchPage() {
     let glTotalCredits = 0
     let glLowCount = 0
 
+    // Step 1: Add 5 Recent Form Players (high credits + decent selection)
     const recentFormPlayers = topByForm.slice(0, 5)
     for (let i = 0; i < recentFormPlayers.length && glTeamPlayers.length < 11; i++) {
       if (!glTeamPlayers.some((p) => p.id === recentFormPlayers[i].id)) {
@@ -483,26 +484,35 @@ export default function ResearchPage() {
       }
     }
 
+    // Step 2: Add 4 Best Fix Players (very high selection rate - must haves)
     const bestFixPlayers = topByConsistency.slice(0, 4)
     for (let i = 0; i < bestFixPlayers.length && glTeamPlayers.length < 11; i++) {
       if (!glTeamPlayers.some((p) => p.id === bestFixPlayers[i].id)) {
         glTeamPlayers.push(bestFixPlayers[i])
         glTeamIds.push(bestFixPlayers[i].id || `player_bf_${i}`)
         glTotalCredits += toNumCredit(bestFixPlayers[i].credits)
-        // Count if this is a low selection player
         if (Number(bestFixPlayers[i].selectedBy || 0) < 50) {
           glLowCount++
         }
       }
     }
 
-    const differentialCandidates = lowSelectionSorted.filter((p) => !glTeamPlayers.some((tp) => tp.id === p.id))
+    // Step 3: Fill remaining slots with low selection players (differential picks)
+    const differentialCandidates = lowSelectionSorted.filter((p) => !glTeamIds.includes(p.id || ""))
     for (let i = 0; i < differentialCandidates.length && glTeamPlayers.length < 11; i++) {
-      if (glTotalCredits + toNumCredit(differentialCandidates[i].credits) <= 100) {
-        glTeamPlayers.push(differentialCandidates[i])
-        glTeamIds.push(differentialCandidates[i].id || `player_diff_${i}`)
-        glTotalCredits += toNumCredit(differentialCandidates[i].credits)
-        glLowCount++
+      glTeamPlayers.push(differentialCandidates[i])
+      glTeamIds.push(differentialCandidates[i].id || `player_diff_${i}`)
+      glTotalCredits += toNumCredit(differentialCandidates[i].credits)
+      glLowCount++
+    }
+
+    // Step 4: If still not 11 players, fill with any remaining players
+    if (glTeamPlayers.length < 11) {
+      const remainingPlayers = allPlayers.filter((p) => !glTeamIds.includes(p.id || ""))
+      for (let i = 0; i < remainingPlayers.length && glTeamPlayers.length < 11; i++) {
+        glTeamPlayers.push(remainingPlayers[i])
+        glTeamIds.push(remainingPlayers[i].id || `player_fill_${i}`)
+        glTotalCredits += toNumCredit(remainingPlayers[i].credits)
       }
     }
 
