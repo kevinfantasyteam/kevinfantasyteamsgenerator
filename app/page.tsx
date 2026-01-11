@@ -375,51 +375,90 @@ export default function HomePage() {
             {aiTeams.map((team) => (
               <Card key={team.id} className="bg-card border-border overflow-hidden">
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <Badge
-                      className={`text-xs ${team.type === "SL" ? "bg-primary/80" : "bg-secondary/80"} text-primary-foreground`}
-                    >
-                      {team.type === "SL" ? "Specialist Low Picks" : "Gem Low Growth"}
-                    </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {team.totalCredits.toFixed(1)} Credits • {team.lowSelectionCount} Low Selection
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="text-xs font-semibold text-foreground mb-2">Playing XI:</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {team.players.map((player, idx) => (
-                        <div
-                          key={idx}
-                          className={`p-2 rounded text-xs border ${
-                            player.isCaptain
-                              ? "bg-red-500/20 border-red-500 text-foreground font-bold"
-                              : player.isViceCaptain
-                                ? "bg-orange-500/20 border-orange-500 text-foreground"
-                                : "bg-muted border-border text-foreground"
-                          }`}
-                        >
-                          <div className="flex items-center gap-1">
-                            <span className="font-semibold">{player.position}.</span>
-                            <span className="truncate">{player.name}</span>
-                            {player.isCaptain && <span>👑</span>}
-                            {player.isViceCaptain && <span>⭐</span>}
-                          </div>
-                          <div className="text-xs opacity-75">
-                            {player.role} • {player.credit}cr
-                          </div>
-                        </div>
-                      ))}
+                  <div className="mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge
+                        className={`text-xs font-semibold ${team.type === "SL" ? "bg-primary/80" : "bg-secondary/80"} text-primary-foreground`}
+                      >
+                        {team.type === "SL" ? "SL Team (Specialist Low Picks)" : "GL Team (Gem Low Growth)"}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      {team.type === "SL"
+                        ? "💡 Differential Strategy: Low selection players (under 50%) with high impact potential"
+                        : "💡 Growth Strategy: Emerging players with low pick rate but high potential"}
+                    </p>
+                    <div className="flex gap-3 text-xs text-muted-foreground">
+                      <span>Total Credits: {team.totalCredits.toFixed(1)}/100</span>
+                      <span>Low Selection Players: {team.lowSelectionCount}/11</span>
                     </div>
                   </div>
 
-                  <div className="mt-3 flex gap-2">
-                    <Badge variant="outline" className="text-xs bg-primary/20 border-primary/50 text-foreground">
-                      C: {team.captain}
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {team.players.map((player, idx) => {
+                      const selection = player.selectionPercentage || 50
+                      const playerType =
+                        selection > 80
+                          ? "Support Player"
+                          : selection > 50
+                            ? team.type === "SL"
+                              ? "Support Player"
+                              : "Rising Star"
+                            : selection > 30
+                              ? team.type === "SL"
+                                ? "Differential Pick"
+                                : "High Growth Potential"
+                              : "High Growth Potential"
+
+                      const playerIcon =
+                        selection > 50 ? (team.type === "GL" ? "📈" : "✅") : team.type === "SL" ? "🎯" : "🚀"
+
+                      return (
+                        <div key={idx} className="border border-border rounded p-2.5 bg-muted/50">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-foreground">{idx + 1}.</span>
+                              <div>
+                                <div className="font-semibold text-foreground flex items-center gap-1">
+                                  {player.name}
+                                  {player.isCaptain && <span>👑 (C)</span>}
+                                  {player.isViceCaptain && <span>⭐ (VC)</span>}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-xs text-muted-foreground space-y-1 ml-6">
+                            <div>
+                              Selection: {selection.toFixed(1)}% | Credits: {player.credit} | Pos: {player.role}
+                            </div>
+                            {team.type === "GL" && (
+                              <div>
+                                H2H: {((player.formScore || 50) * 1.5).toFixed(1)} | {playerIcon} {playerType}
+                              </div>
+                            )}
+                            {team.type === "SL" && (
+                              <div>
+                                {playerIcon} {playerType}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-border flex gap-2">
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-red-500/20 border-red-500 text-foreground font-semibold"
+                    >
+                      👑 C: {team.captain}
                     </Badge>
-                    <Badge variant="outline" className="text-xs bg-orange-500/20 border-orange-500/50 text-foreground">
-                      VC: {team.viceCaptain}
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-orange-500/20 border-orange-500 text-foreground font-semibold"
+                    >
+                      ⭐ VC: {team.viceCaptain}
                     </Badge>
                   </div>
                 </CardContent>
