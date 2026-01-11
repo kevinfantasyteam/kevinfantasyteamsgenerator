@@ -127,36 +127,50 @@ export default function HomePage() {
         recentForm: quantumAnalysis[p.name]?.recentForm || "Unknown",
       }))
 
-      // Generate SL Team (4-5 high selection + 3-4 low selection)
       const highSelectionPlayers = enrichedPlayers
-        .filter((p) => (p.selectionPercentage || 50) > 50)
+        .filter((p) => (p.selectionPercentage || 50) > 60)
         .sort((a, b) => (b.selectionPercentage || 50) - (a.selectionPercentage || 50))
-        .slice(0, 5)
 
       const lowSelectionPlayers = enrichedPlayers
         .filter((p) => (p.selectionPercentage || 50) <= 50)
         .sort((a, b) => (a.selectionPercentage || 50) - (b.selectionPercentage || 50))
-        .slice(0, 6)
 
-      const slTeamPlayers = [...highSelectionPlayers.slice(0, 4), ...lowSelectionPlayers].slice(0, 11)
+      const slTeamPlayers = [...highSelectionPlayers.slice(0, 4), ...lowSelectionPlayers.slice(0, 4)].slice(0, 11)
 
-      // Generate GL Team (5 recent form + 4 best fix + 2 differential)
-      const recentFormPlayers = enrichedPlayers
-        .filter((p) => (p.selectionPercentage || 50) > 60)
+      // Fill remaining SL slots if needed
+      if (slTeamPlayers.length < 11) {
+        const usedIds = new Set(slTeamPlayers.map((p) => p.name))
+        const remainingForSL = enrichedPlayers.filter((p) => !usedIds.has(p.name))
+        slTeamPlayers.push(...remainingForSL.slice(0, 11 - slTeamPlayers.length))
+      }
+
+      const slTeamNames = new Set(slTeamPlayers.map((p) => p.name))
+      const remainingForGL = enrichedPlayers.filter((p) => !slTeamNames.has(p.name))
+
+      const recentFormPlayers = remainingForGL
+        .filter((p) => (p.selectionPercentage || 50) > 65)
         .sort((a, b) => (b.formScore || 50) - (a.formScore || 50))
         .slice(0, 5)
 
-      const bestFixPlayers = enrichedPlayers
-        .filter((p) => (p.selectionPercentage || 50) > 40 && (p.selectionPercentage || 50) <= 60)
+      const bestFixPlayers = remainingForGL
+        .filter((p) => (p.selectionPercentage || 50) > 50 && (p.selectionPercentage || 50) <= 65)
         .sort((a, b) => (b.selectionPercentage || 50) - (a.selectionPercentage || 50))
         .slice(0, 4)
 
-      const differentialPlayers = enrichedPlayers
-        .filter((p) => (p.selectionPercentage || 50) <= 40)
+      const glUsedIds = new Set([...recentFormPlayers.map((p) => p.name), ...bestFixPlayers.map((p) => p.name)])
+      const differentialPlayers = remainingForGL
+        .filter((p) => (p.selectionPercentage || 50) <= 50 && !glUsedIds.has(p.name))
         .sort((a, b) => (a.selectionPercentage || 50) - (b.selectionPercentage || 50))
         .slice(0, 2)
 
-      const glTeamPlayers = [...recentFormPlayers, ...bestFixPlayers, ...differentialPlayers].slice(0, 11)
+      const glTeamPlayers = [...recentFormPlayers, ...bestFixPlayers, ...differentialPlayers]
+
+      // Fill remaining GL slots if needed
+      if (glTeamPlayers.length < 11) {
+        const glUsedNames = new Set(glTeamPlayers.map((p) => p.name))
+        const remainingForGLFill = remainingForGL.filter((p) => !glUsedNames.has(p.name))
+        glTeamPlayers.push(...remainingForGLFill.slice(0, 11 - glTeamPlayers.length))
+      }
 
       const assignCVC = (teamPlayers: typeof slTeamPlayers) => {
         const sorted = [...teamPlayers].sort((a, b) => {
@@ -205,8 +219,14 @@ export default function HomePage() {
       ]
 
       setAiTeams(generatedTeams)
+      console.log(
+        "[v0] Generated teams - SL players:",
+        slTeamPlayers.map((p) => p.name),
+        "GL players:",
+        glTeamPlayers.map((p) => p.name),
+      )
     } catch (error) {
-      console.log("[v0] Error generating AI teams:", error)
+      console.error("[v0] Error generating AI teams:", error)
     } finally {
       setIsGeneratingTeams(false)
     }
