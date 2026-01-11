@@ -36,7 +36,7 @@ interface Player {
 
 interface AITeam {
   id: string
-  type: "SL" | "GL"
+  type: "SL" | "GL" | "MIX"
   players: (Player & { position?: number; isCaptain?: boolean; isViceCaptain?: boolean })[]
   totalCredits: number
   lowSelectionCount: number
@@ -135,6 +135,7 @@ export default function HomePage() {
         .filter((p) => (p.selectionPercentage || 50) <= 50)
         .sort((a, b) => (a.selectionPercentage || 50) - (b.selectionPercentage || 50))
 
+      // SL Team: 4-5 high selection + 3-4 low selection
       const slTeamPlayers = [...highSelectionPlayers.slice(0, 4), ...lowSelectionPlayers.slice(0, 4)].slice(0, 11)
 
       // Fill remaining SL slots if needed
@@ -147,6 +148,7 @@ export default function HomePage() {
       const slTeamNames = new Set(slTeamPlayers.map((p) => p.name))
       const remainingForGL = enrichedPlayers.filter((p) => !slTeamNames.has(p.name))
 
+      // GL Team: 5 recent form + 4 best fix + 2 differential
       const recentFormPlayers = remainingForGL
         .filter((p) => (p.selectionPercentage || 50) > 65)
         .sort((a, b) => (b.formScore || 50) - (a.formScore || 50))
@@ -157,9 +159,9 @@ export default function HomePage() {
         .sort((a, b) => (b.selectionPercentage || 50) - (a.selectionPercentage || 50))
         .slice(0, 4)
 
-      const glUsedIds = new Set([...recentFormPlayers.map((p) => p.name), ...bestFixPlayers.map((p) => p.name)])
+      const glUsedNames = new Set([...recentFormPlayers.map((p) => p.name), ...bestFixPlayers.map((p) => p.name)])
       const differentialPlayers = remainingForGL
-        .filter((p) => (p.selectionPercentage || 50) <= 50 && !glUsedIds.has(p.name))
+        .filter((p) => (p.selectionPercentage || 50) <= 50 && !glUsedNames.has(p.name))
         .sort((a, b) => (a.selectionPercentage || 50) - (b.selectionPercentage || 50))
         .slice(0, 2)
 
@@ -171,6 +173,15 @@ export default function HomePage() {
         const remainingForGLFill = remainingForGL.filter((p) => !glUsedNames.has(p.name))
         glTeamPlayers.push(...remainingForGLFill.slice(0, 11 - glTeamPlayers.length))
       }
+
+      const glTeamNames = new Set(glTeamPlayers.map((p) => p.name))
+      const slAndGlNames = new Set([...slTeamNames, ...glTeamNames])
+      const remainingForMix = enrichedPlayers.filter((p) => !slAndGlNames.has(p.name))
+
+      // MIX Team: Sort by quantum score and select top performers across all selection levels
+      const quantumSorted = enrichedPlayers.sort((a, b) => (b.quantumScore || 50) - (a.quantumScore || 50)).slice(0, 11)
+
+      const mixTeamPlayers = quantumSorted
 
       const assignCVC = (teamPlayers: typeof slTeamPlayers) => {
         const sorted = [...teamPlayers].sort((a, b) => {
@@ -186,6 +197,7 @@ export default function HomePage() {
 
       const slCVC = assignCVC(slTeamPlayers)
       const glCVC = assignCVC(glTeamPlayers)
+      const mixCVC = assignCVC(mixTeamPlayers)
 
       const generatedTeams: AITeam[] = [
         {
@@ -216,6 +228,20 @@ export default function HomePage() {
           captain: glCVC.captain,
           viceCaptain: glCVC.viceCaptain,
         },
+        {
+          id: "mix-" + Date.now(),
+          type: "MIX",
+          players: mixTeamPlayers.map((p, idx) => ({
+            ...p,
+            position: idx + 1,
+            isCaptain: p.name === mixCVC.captain,
+            isViceCaptain: p.name === mixCVC.viceCaptain,
+          })),
+          totalCredits: mixTeamPlayers.reduce((sum, p) => sum + (p.credit || 0), 0),
+          lowSelectionCount: mixTeamPlayers.filter((p) => (p.selectionPercentage || 50) <= 50).length,
+          captain: mixCVC.captain,
+          viceCaptain: mixCVC.viceCaptain,
+        },
       ]
 
       setAiTeams(generatedTeams)
@@ -224,6 +250,8 @@ export default function HomePage() {
         slTeamPlayers.map((p) => p.name),
         "GL players:",
         glTeamPlayers.map((p) => p.name),
+        "MIX players:",
+        mixTeamPlayers.map((p) => p.name),
       )
     } catch (error) {
       console.error("[v0] Error generating AI teams:", error)
@@ -391,95 +419,65 @@ export default function HomePage() {
 
         {aiTeams.length > 0 && (
           <div className="space-y-4 mt-6">
-            <h3 className="text-lg font-semibold text-foreground">Generated AI Teams</h3>
             {aiTeams.map((team) => (
-              <Card key={team.id} className="bg-card border-border overflow-hidden">
+              <Card key={team.id} className="bg-card border-primary/20">
                 <CardContent className="p-4">
-                  <div className="mb-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Badge
-                        className={`text-xs font-semibold ${team.type === "SL" ? "bg-primary/80" : "bg-secondary/80"} text-primary-foreground`}
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Brain className="h-5 w-5 text-primary" />
+                      <div>
+                        <h3 className="font-bold">
+                          {team.type === "SL"
+                            ? "🎯 SL Team (Specialist Low)"
+                            : team.type === "GL"
+                              ? "✨ GL Team (Gem Low)"
+                              : "🔮 MIX Team (Quantum AI Mix)"}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {team.type === "SL"
+                            ? "4-5 High Selection + 3-4 Differential Picks"
+                            : team.type === "GL"
+                              ? "5 Recent Form + 4 Best Fix + 2 Differential"
+                              : "Quantum Score Optimized Mix"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold">Credits: {team.totalCredits}</p>
+                      <p className="text-xs text-accent">Low: {team.lowSelectionCount}</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2">
+                    {team.players.map((player) => (
+                      <div
+                        key={player.name}
+                        className="flex items-center justify-between bg-background p-3 rounded border border-border"
                       >
-                        {team.type === "SL" ? "SL Team (Specialist Low Picks)" : "GL Team (Gem Low Growth)"}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      {team.type === "SL"
-                        ? "💡 Differential Strategy: Low selection players (under 50%) with high impact potential"
-                        : "💡 Growth Strategy: Emerging players with low pick rate but high potential"}
-                    </p>
-                    <div className="flex gap-3 text-xs text-muted-foreground">
-                      <span>Total Credits: {team.totalCredits.toFixed(1)}/100</span>
-                      <span>Low Selection Players: {team.lowSelectionCount}/11</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {team.players.map((player, idx) => {
-                      const selection = player.selectionPercentage || 50
-                      const playerType =
-                        selection > 80
-                          ? "Support Player"
-                          : selection > 50
-                            ? team.type === "SL"
-                              ? "Support Player"
-                              : "Rising Star"
-                            : selection > 30
-                              ? team.type === "SL"
-                                ? "Differential Pick"
-                                : "High Growth Potential"
-                              : "High Growth Potential"
-
-                      const playerIcon =
-                        selection > 50 ? (team.type === "GL" ? "📈" : "✅") : team.type === "SL" ? "🎯" : "🚀"
-
-                      return (
-                        <div key={idx} className="border border-border rounded p-2.5 bg-muted/50">
-                          <div className="flex items-start justify-between gap-2 mb-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-foreground">{idx + 1}.</span>
-                              <div>
-                                <div className="font-semibold text-foreground flex items-center gap-1">
-                                  {player.name}
-                                  {player.isCaptain && <span>👑 (C)</span>}
-                                  {player.isViceCaptain && <span>⭐ (VC)</span>}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-xs text-muted-foreground space-y-1 ml-6">
-                            <div>
-                              Selection: {selection.toFixed(1)}% | Credits: {player.credit} | Pos: {player.role}
-                            </div>
-                            {team.type === "GL" && (
-                              <div>
-                                H2H: {((player.formScore || 50) * 1.5).toFixed(1)} | {playerIcon} {playerType}
-                              </div>
-                            )}
-                            {team.type === "SL" && (
-                              <div>
-                                {playerIcon} {playerType}
-                              </div>
-                            )}
-                          </div>
+                        <div className="flex-1">
+                          <p className="font-semibold">
+                            {player.position}. {player.name}{" "}
+                            {player.isCaptain && <span className="text-accent ml-1">👑 C</span>}
+                            {player.isViceCaptain && <span className="text-orange-500 ml-1">⭐ VC</span>}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {player.role} • {player.selectionPercentage?.toFixed(1) || "0"}% selected
+                          </p>
                         </div>
-                      )
-                    })}
+                        <div className="text-right">
+                          <Badge variant="outline" className="bg-primary/10">
+                            {player.credit} Cr
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-border flex gap-2">
-                    <Badge
-                      variant="outline"
-                      className="text-xs bg-red-500/20 border-red-500 text-foreground font-semibold"
-                    >
-                      👑 C: {team.captain}
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className="text-xs bg-orange-500/20 border-orange-500 text-foreground font-semibold"
-                    >
-                      ⭐ VC: {team.viceCaptain}
-                    </Badge>
+                  <div className="mt-4 pt-3 border-t border-border text-sm text-center">
+                    <p>
+                      Captain: <span className="font-bold text-accent">{team.captain}</span> | Vice Captain:{" "}
+                      <span className="font-bold text-orange-500">{team.viceCaptain}</span>
+                    </p>
                   </div>
                 </CardContent>
               </Card>
