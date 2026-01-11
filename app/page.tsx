@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Trophy, Clock, Users, Hash, Settings, Zap, Brain } from "lucide-react"
+import { Trophy, Clock, Users, Hash, Settings, Zap, Brain, Sparkles } from "lucide-react"
 
 interface Match {
   id: string
@@ -22,9 +22,30 @@ interface Match {
   liveAnalytics: string // Added liveAnalytics field
 }
 
+interface Player {
+  id?: string
+  name: string
+  team: string
+  role: string
+  credit: number
+  selectionPercentage?: number
+}
+
+interface AITeam {
+  id: string
+  type: "SL" | "GL"
+  players: (Player & { position?: number; isCaptain?: boolean; isViceCaptain?: boolean })[]
+  totalCredits: number
+  lowSelectionCount: number
+  captain: string
+  viceCaptain: string
+}
+
 export default function HomePage() {
   const [selectedMatch, setSelectedMatch] = useState<string | null>(null)
   const [matches, setMatches] = useState<Match[]>([])
+  const [aiTeams, setAiTeams] = useState<AITeam[]>([])
+  const [isGeneratingTeams, setIsGeneratingTeams] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -78,6 +99,107 @@ export default function HomePage() {
       return `${days}d ${hours % 24}h ${minutes}m left`
     }
     return `${hours}h ${minutes}m left`
+  }
+
+  const generateAITeams = async () => {
+    const match = matches.find((m) => m.id === selectedMatch)
+    if (!match) return
+
+    setIsGeneratingTeams(true)
+
+    try {
+      const allPlayers = [...(match.team1Players || []), ...(match.team2Players || [])]
+
+      // Get stored selections
+      const selectedPlayers = JSON.parse(localStorage.getItem(`selectedPlayers_${selectedMatch}`) || "[]")
+      const playerPercentages = JSON.parse(localStorage.getItem(`playerPercentages_${selectedMatch}`) || "{}")
+
+      // Enrich players with selection percentage
+      const enrichedPlayers = allPlayers.map((p) => ({
+        ...p,
+        selectionPercentage: playerPercentages[p.name] || 50,
+      }))
+
+      // Generate SL Team (4-5 high selection + 3-4 low selection)
+      const highSelectionPlayers = enrichedPlayers
+        .filter((p) => (p.selectionPercentage || 50) > 50)
+        .sort((a, b) => (b.selectionPercentage || 50) - (a.selectionPercentage || 50))
+        .slice(0, 5)
+
+      const lowSelectionPlayers = enrichedPlayers
+        .filter((p) => (p.selectionPercentage || 50) <= 50)
+        .sort((a, b) => (a.selectionPercentage || 50) - (b.selectionPercentage || 50))
+        .slice(0, 6)
+
+      const slTeamPlayers = [...highSelectionPlayers.slice(0, 4), ...lowSelectionPlayers].slice(0, 11)
+
+      // Generate GL Team (5 recent form + 4 best fix + 2 differential)
+      const recentFormPlayers = enrichedPlayers
+        .filter((p) => (p.selectionPercentage || 50) > 60)
+        .sort((a, b) => (b.selectionPercentage || 50) - (a.selectionPercentage || 50))
+        .slice(0, 5)
+
+      const bestFixPlayers = enrichedPlayers
+        .filter((p) => (p.selectionPercentage || 50) > 40 && (p.selectionPercentage || 50) <= 60)
+        .sort((a, b) => (b.selectionPercentage || 50) - (a.selectionPercentage || 50))
+        .slice(0, 4)
+
+      const differentialPlayers = enrichedPlayers
+        .filter((p) => (p.selectionPercentage || 50) <= 40)
+        .sort((a, b) => (a.selectionPercentage || 50) - (b.selectionPercentage || 50))
+        .slice(0, 2)
+
+      const glTeamPlayers = [...recentFormPlayers, ...bestFixPlayers, ...differentialPlayers].slice(0, 11)
+
+      // Assign Captain and Vice Captain based on selection percentage and form
+      const assignCVC = (teamPlayers: typeof slTeamPlayers) => {
+        const sorted = [...teamPlayers].sort((a, b) => (b.selectionPercentage || 50) - (a.selectionPercentage || 50))
+        const captain = sorted[0]?.name || teamPlayers[0]?.name
+        const viceCaptain = sorted[1]?.name || teamPlayers[1]?.name
+
+        return { captain, viceCaptain }
+      }
+
+      const slCVC = assignCVC(slTeamPlayers)
+      const glCVC = assignCVC(glTeamPlayers)
+
+      const generatedTeams: AITeam[] = [
+        {
+          id: "sl-" + Date.now(),
+          type: "SL",
+          players: slTeamPlayers.map((p, idx) => ({
+            ...p,
+            position: idx + 1,
+            isCaptain: p.name === slCVC.captain,
+            isViceCaptain: p.name === slCVC.viceCaptain,
+          })),
+          totalCredits: slTeamPlayers.reduce((sum, p) => sum + (p.credit || 0), 0),
+          lowSelectionCount: slTeamPlayers.filter((p) => (p.selectionPercentage || 50) <= 50).length,
+          captain: slCVC.captain,
+          viceCaptain: slCVC.viceCaptain,
+        },
+        {
+          id: "gl-" + Date.now(),
+          type: "GL",
+          players: glTeamPlayers.map((p, idx) => ({
+            ...p,
+            position: idx + 1,
+            isCaptain: p.name === glCVC.captain,
+            isViceCaptain: p.name === glCVC.viceCaptain,
+          })),
+          totalCredits: glTeamPlayers.reduce((sum, p) => sum + (p.credit || 0), 0),
+          lowSelectionCount: glTeamPlayers.filter((p) => (p.selectionPercentage || 50) <= 50).length,
+          captain: glCVC.captain,
+          viceCaptain: glCVC.viceCaptain,
+        },
+      ]
+
+      setAiTeams(generatedTeams)
+    } catch (error) {
+      console.log("[v0] Error generating AI teams:", error)
+    } finally {
+      setIsGeneratingTeams(false)
+    }
   }
 
   return (
@@ -215,14 +337,85 @@ export default function HomePage() {
         </div>
 
         {selectedMatch && (
-          <Button
-            onClick={handleContinue}
-            className="w-full mt-6 bg-primary hover:bg-primary/80 text-primary-foreground font-semibold"
-            size="lg"
-          >
-            <Zap className="h-4 w-4 mr-2" />
-            Start Team Generation
-          </Button>
+          <div className="space-y-3">
+            <Button
+              onClick={handleContinue}
+              className="w-full bg-primary hover:bg-primary/80 text-primary-foreground font-semibold"
+              size="lg"
+            >
+              <Zap className="h-4 w-4 mr-2" />
+              Start Team Generation
+            </Button>
+
+            <Button
+              onClick={generateAITeams}
+              disabled={isGeneratingTeams}
+              className="w-full bg-secondary hover:bg-secondary/80 text-secondary-foreground font-semibold"
+              size="lg"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              {isGeneratingTeams ? "Generating..." : "AI Direct Teams (SL & GL)"}
+            </Button>
+          </div>
+        )}
+
+        {aiTeams.length > 0 && (
+          <div className="space-y-4 mt-6">
+            <h3 className="text-lg font-semibold text-foreground">Generated AI Teams</h3>
+            {aiTeams.map((team) => (
+              <Card key={team.id} className="bg-card border-border overflow-hidden">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <Badge
+                      className={`text-xs ${team.type === "SL" ? "bg-primary/80" : "bg-secondary/80"} text-primary-foreground`}
+                    >
+                      {team.type === "SL" ? "Specialist Low Picks" : "Gem Low Growth"}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {team.totalCredits.toFixed(1)} Credits • {team.lowSelectionCount} Low Selection
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-xs font-semibold text-foreground mb-2">Playing XI:</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {team.players.map((player, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-2 rounded text-xs border ${
+                            player.isCaptain
+                              ? "bg-red-500/20 border-red-500 text-foreground font-bold"
+                              : player.isViceCaptain
+                                ? "bg-orange-500/20 border-orange-500 text-foreground"
+                                : "bg-muted border-border text-foreground"
+                          }`}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span className="font-semibold">{player.position}.</span>
+                            <span className="truncate">{player.name}</span>
+                            {player.isCaptain && <span>👑</span>}
+                            {player.isViceCaptain && <span>⭐</span>}
+                          </div>
+                          <div className="text-xs opacity-75">
+                            {player.role} • {player.credit}cr
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex gap-2">
+                    <Badge variant="outline" className="text-xs bg-primary/20 border-primary/50 text-foreground">
+                      C: {team.captain}
+                    </Badge>
+                    <Badge variant="outline" className="text-xs bg-orange-500/20 border-orange-500/50 text-foreground">
+                      VC: {team.viceCaptain}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         )}
       </div>
 
