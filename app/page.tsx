@@ -178,10 +178,51 @@ export default function HomePage() {
       const slAndGlNames = new Set([...slTeamNames, ...glTeamNames])
       const remainingForMix = enrichedPlayers.filter((p) => !slAndGlNames.has(p.name))
 
-      // MIX Team: Sort by quantum score and select top performers across all selection levels
-      const quantumSorted = enrichedPlayers.sort((a, b) => (b.quantumScore || 50) - (a.quantumScore || 50)).slice(0, 11)
+      const topPicksFromQuantum = enrichedPlayers
+        .filter((p) => p.quantumScore >= 70)
+        .sort((a, b) => (b.quantumScore || 50) - (a.quantumScore || 50))
+        .slice(0, 6)
 
-      const mixTeamPlayers = quantumSorted
+      const valuablePlayers = enrichedPlayers
+        .filter((p) => p.formScore >= 65 && (p.selectionPercentage || 50) > 40)
+        .sort((a, b) => (b.formScore || 50) - (a.formScore || 50))
+        .slice(0, 3)
+
+      const captainCandidates = enrichedPlayers
+        .filter((p) => (p.selectionPercentage || 50) > 60 && (p.quantumScore || 50) > 60)
+        .sort((a, b) => (b.quantumScore || 50) - (a.quantumScore || 50))
+        .slice(0, 2)
+
+      const mixTeamSet = new Set<string>()
+      const mixTeamPlayers: typeof slTeamPlayers = []
+
+      topPicksFromQuantum.forEach((p) => {
+        if (!mixTeamSet.has(p.name)) {
+          mixTeamPlayers.push(p)
+          mixTeamSet.add(p.name)
+        }
+      })
+
+      valuablePlayers.forEach((p) => {
+        if (!mixTeamSet.has(p.name)) {
+          mixTeamPlayers.push(p)
+          mixTeamSet.add(p.name)
+        }
+      })
+
+      captainCandidates.forEach((p) => {
+        if (!mixTeamSet.has(p.name)) {
+          mixTeamPlayers.push(p)
+          mixTeamSet.add(p.name)
+        }
+      })
+
+      if (mixTeamPlayers.length < 11) {
+        const remaining = enrichedPlayers
+          .filter((p) => !mixTeamSet.has(p.name))
+          .sort((a, b) => (b.quantumScore || 50) - (a.quantumScore || 50))
+        mixTeamPlayers.push(...remaining.slice(0, 11 - mixTeamPlayers.length))
+      }
 
       const assignCVC = (teamPlayers: typeof slTeamPlayers) => {
         const sorted = [...teamPlayers].sort((a, b) => {
