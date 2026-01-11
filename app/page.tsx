@@ -29,6 +29,9 @@ interface Player {
   role: string
   credit: number
   selectionPercentage?: number
+  quantumScore?: number
+  formScore?: number
+  recentForm?: string
 }
 
 interface AITeam {
@@ -110,14 +113,18 @@ export default function HomePage() {
     try {
       const allPlayers = [...(match.team1Players || []), ...(match.team2Players || [])]
 
-      // Get stored selections
+      // Get stored selections and quantum analysis data
       const selectedPlayers = JSON.parse(localStorage.getItem(`selectedPlayers_${selectedMatch}`) || "[]")
       const playerPercentages = JSON.parse(localStorage.getItem(`playerPercentages_${selectedMatch}`) || "{}")
+      const quantumAnalysis = JSON.parse(localStorage.getItem(`quantumAnalysis_${selectedMatch}`) || "{}")
 
-      // Enrich players with selection percentage
+      // Enrich players with selection percentage and quantum score
       const enrichedPlayers = allPlayers.map((p) => ({
         ...p,
         selectionPercentage: playerPercentages[p.name] || 50,
+        quantumScore: quantumAnalysis[p.name]?.quantumScore || 50,
+        formScore: quantumAnalysis[p.name]?.formScore || 50,
+        recentForm: quantumAnalysis[p.name]?.recentForm || "Unknown",
       }))
 
       // Generate SL Team (4-5 high selection + 3-4 low selection)
@@ -136,7 +143,7 @@ export default function HomePage() {
       // Generate GL Team (5 recent form + 4 best fix + 2 differential)
       const recentFormPlayers = enrichedPlayers
         .filter((p) => (p.selectionPercentage || 50) > 60)
-        .sort((a, b) => (b.selectionPercentage || 50) - (a.selectionPercentage || 50))
+        .sort((a, b) => (b.formScore || 50) - (a.formScore || 50))
         .slice(0, 5)
 
       const bestFixPlayers = enrichedPlayers
@@ -151,9 +158,12 @@ export default function HomePage() {
 
       const glTeamPlayers = [...recentFormPlayers, ...bestFixPlayers, ...differentialPlayers].slice(0, 11)
 
-      // Assign Captain and Vice Captain based on selection percentage and form
       const assignCVC = (teamPlayers: typeof slTeamPlayers) => {
-        const sorted = [...teamPlayers].sort((a, b) => (b.selectionPercentage || 50) - (a.selectionPercentage || 50))
+        const sorted = [...teamPlayers].sort((a, b) => {
+          const scoreA = a.quantumScore || a.formScore || a.selectionPercentage || 50
+          const scoreB = b.quantumScore || b.formScore || b.selectionPercentage || 50
+          return scoreB - scoreA
+        })
         const captain = sorted[0]?.name || teamPlayers[0]?.name
         const viceCaptain = sorted[1]?.name || teamPlayers[1]?.name
 
