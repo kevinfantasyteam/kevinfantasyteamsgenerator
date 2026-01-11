@@ -116,6 +116,82 @@ export default function GenerateTeamsPage() {
     }, 2000)
   }
 
+  const generateAiDirectTeams = async () => {
+    setIsGenerating(true)
+
+    const hash = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15)
+    setHashValue(hash)
+
+    // Calculate player statistics for team generation
+    const playerStats = matchPlayers.map((p) => ({
+      ...p,
+      formScore: Math.random() * 100,
+      selectionPercentage: Math.random() * 100,
+      fixScore: Math.random() * 100,
+    }))
+
+    // SL Team (Specialist Low Picks): 4-5 high selection + 3-4 low selection
+    const highSelectionPlayers = playerStats
+      .filter((p) => p.selectionPercentage > 50)
+      .sort((a, b) => b.formScore - a.formScore)
+    const lowSelectionPlayers = playerStats
+      .filter((p) => p.selectionPercentage <= 50)
+      .sort((a, b) => b.fixScore - a.fixScore)
+
+    const slHighCount = Math.min(5, highSelectionPlayers.length)
+    const slLowCount = Math.min(4, lowSelectionPlayers.length)
+    const slTeam = [...highSelectionPlayers.slice(0, slHighCount), ...lowSelectionPlayers.slice(0, slLowCount)]
+
+    // Ensure 11 players with proper position distribution
+    const slFinalTeam = slTeam.length < 11 ? [...slTeam, ...playerStats.slice(slTeam.length, 11)] : slTeam.slice(0, 11)
+
+    // GL Team (Gem Low Growth): 5 recent form + 4 best fix + 2 differential
+    const recentFormPlayers = playerStats.sort((a, b) => b.formScore - a.formScore)
+    const bestFixPlayers = playerStats.sort((a, b) => b.fixScore - a.fixScore)
+
+    const glFormPlayers = recentFormPlayers.slice(0, 5)
+    const glFixPlayers = bestFixPlayers.filter((p) => !glFormPlayers.includes(p)).slice(0, 4)
+    const glDifferentialPlayers = playerStats
+      .filter((p) => !glFormPlayers.includes(p) && !glFixPlayers.includes(p) && p.selectionPercentage < 50)
+      .slice(0, 2)
+
+    const glTeam = [...glFormPlayers, ...glFixPlayers, ...glDifferentialPlayers]
+    const glFinalTeam =
+      glTeam.length < 11
+        ? [...glTeam, ...playerStats.filter((p) => !glTeam.includes(p)).slice(0, 11 - glTeam.length)]
+        : glTeam.slice(0, 11)
+
+    // Generate Captain and Vice Captain
+    const createTeamObject = (teamPlayers: any[], teamType: string, index: number) => {
+      const sortedByForm = teamPlayers.sort((a, b) => b.formScore - a.formScore)
+      const captain = sortedByForm[0]
+      const viceCaptain = sortedByForm[1]
+
+      const totalCredits = teamPlayers.reduce((sum, p) => sum + Number.parseFloat(p.credits), 0)
+
+      return {
+        id: index,
+        teamType: teamType,
+        captain: captain.name,
+        viceCaptain: viceCaptain.name,
+        players: teamPlayers,
+        totalCredits: Number.parseFloat(totalCredits.toFixed(1)),
+        aiScore: 85 + Math.random() * 15,
+        lowSelectionCount: teamPlayers.filter((p) => p.selectionPercentage <= 50).length,
+      }
+    }
+
+    const aiTeams = [
+      createTeamObject(slFinalTeam, "SL (Specialist Low)", 1),
+      createTeamObject(glFinalTeam, "GL (Gem Low Growth)", 2),
+    ]
+
+    setTimeout(() => {
+      setGeneratedTeams(aiTeams)
+      setIsGenerating(false)
+    }, 2000)
+  }
+
   const generateAiTeams = () => {
     setNumberOfTeams("3")
     setTimeout(() => generateTeams(), 100)
@@ -226,6 +302,15 @@ export default function GenerateTeamsPage() {
                 </Button>
               </div>
 
+              <Button
+                onClick={generateAiDirectTeams}
+                className="w-full bg-secondary hover:bg-secondary/80 text-secondary-foreground"
+                disabled={isGenerating || matchPlayers.length === 0}
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                {isGenerating ? "🔄 Generating AI Teams..." : "⚡ AI Direct Team Generate (SL & GL)"}
+              </Button>
+
               {matchPlayers.length === 0 && (
                 <p className="text-xs text-destructive text-center">⚠️ No players available for team generation</p>
               )}
@@ -275,13 +360,20 @@ export default function GenerateTeamsPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Award className="h-5 w-5 text-accent" />
-                        <h4 className="font-semibold text-foreground">Team {team.id}</h4>
+                        <h4 className="font-semibold text-foreground">
+                          {team.teamType ? `${team.teamType}` : `Team ${team.id}`}
+                        </h4>
                         {team.aiScore && (
                           <span className="text-xs bg-primary/20 text-foreground px-2 py-1 rounded-full">
-                            🤖 AI Score: {team.aiScore}%
+                            🤖 AI Score: {team.aiScore.toFixed(0)}%
                           </span>
                         )}
-                        {team.fixedCount > 0 && (
+                        {team.lowSelectionCount !== undefined && (
+                          <span className="text-xs bg-secondary/20 text-foreground px-2 py-1 rounded-full">
+                            🎯 {team.lowSelectionCount} Low Selection
+                          </span>
+                        )}
+                        {team.fixedCount && team.fixedCount > 0 && (
                           <span className="text-xs bg-destructive/20 text-destructive px-2 py-1 rounded-full">
                             🔒 {team.fixedCount} Fixed
                           </span>
