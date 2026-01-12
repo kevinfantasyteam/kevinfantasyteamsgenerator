@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Trophy, Clock, Users, Hash, Settings, Zap, Brain } from "lucide-react"
+import { Trophy, Clock, Users, Hash, Settings, Zap, Brain, Sparkles } from "lucide-react"
 
 interface Match {
   id: string
@@ -32,25 +32,23 @@ interface Player {
   quantumScore?: number
   formScore?: number
   recentForm?: string
-  expectedRuns?: number
-  expectedWickets?: number
-  expectedPoints?: number
 }
 
-interface AITeam {
+interface CricbuzzTeam {
   id: string
-  type: "SL" | "GL"
+  type: "CRICBUZZ"
   players: (Player & { position?: number; isCaptain?: boolean; isViceCaptain?: boolean })[]
   totalCredits: number
   lowSelectionCount: number
   captain: string
   viceCaptain: string
+  analysis: string
 }
 
 export default function HomePage() {
   const [selectedMatch, setSelectedMatch] = useState<string | null>(null)
   const [matches, setMatches] = useState<Match[]>([])
-  const [aiTeams, setAiTeams] = useState<AITeam[]>([])
+  const [aiTeams, setAiTeams] = useState<CricbuzzTeam[]>([])
   const [isGeneratingTeams, setIsGeneratingTeams] = useState(false)
   const router = useRouter()
 
@@ -68,7 +66,6 @@ export default function HomePage() {
 
   const handleMatchSelect = (matchId: string) => {
     setSelectedMatch(matchId)
-    generateAITeamsDirectly(matchId)
   }
 
   const handleContinue = () => {
@@ -108,152 +105,105 @@ export default function HomePage() {
     return `${hours}h ${minutes}m left`
   }
 
-  const generateAITeamsDirectly = async (matchId: string) => {
-    const match = matches.find((m) => m.id === matchId)
+  const generateCricbuzzTeam = async () => {
+    const match = matches.find((m) => m.id === selectedMatch)
     if (!match) return
 
     setIsGeneratingTeams(true)
 
     try {
-      const allPlayers = [...(match.team1Players || []), ...(match.team2Players || [])]
+      // Load saved Team 1 and Team 2 from localStorage
+      const team1Data = JSON.parse(localStorage.getItem(`team1_${selectedMatch}`) || "[]")
+      const team2Data = JSON.parse(localStorage.getItem(`team2_${selectedMatch}`) || "[]")
 
-      const selectedPlayers = JSON.parse(localStorage.getItem(`selectedPlayers_${matchId}`) || "[]")
-      const playerPercentages = JSON.parse(localStorage.getItem(`playerPercentages_${matchId}`) || "{}")
-      const quantumAnalysis = JSON.parse(localStorage.getItem(`quantumAnalysis_${matchId}`) || "{}")
+      // Combine all players from both teams (22 players)
+      const allTeamPlayers = [...team1Data, ...team2Data]
 
-      const enrichedPlayers = allPlayers.map((p) => ({
+      if (allTeamPlayers.length === 0) {
+        alert("No saved teams found. Please generate teams first in Team Generation flow.")
+        setIsGeneratingTeams(false)
+        return
+      }
+
+      // Get stored selection and quantum data
+      const playerPercentages = JSON.parse(localStorage.getItem(`playerPercentages_${selectedMatch}`) || "{}")
+      const quantumAnalysis = JSON.parse(localStorage.getItem(`quantumAnalysis_${selectedMatch}`) || "{}")
+
+      // Enrich combined team players with analysis data
+      const enrichedTeamPlayers = allTeamPlayers.map((p) => ({
         ...p,
-        selectionPercentage: playerPercentages[p.name] || 50,
-        quantumScore: quantumAnalysis[p.name]?.quantumScore || 50,
-        formScore: quantumAnalysis[p.name]?.formScore || 50,
-        recentForm: quantumAnalysis[p.name]?.recentForm || "Unknown",
-        expectedRuns: Math.floor(Math.random() * 40 + 10),
-        expectedWickets: Math.floor(Math.random() * 3),
-        expectedPoints: Math.floor(Math.random() * 100 + 30),
+        selectionPercentage: playerPercentages[p.name] || p.selectionPercentage || 50,
+        quantumScore: quantumAnalysis[p.name]?.quantumScore || p.quantumScore || 50,
+        formScore: quantumAnalysis[p.name]?.formScore || p.formScore || 50,
+        recentForm: quantumAnalysis[p.name]?.recentForm || p.recentForm || "Unknown",
       }))
 
-      // Team 1 - Safe / Small League
-      const consistencyPlayers = enrichedPlayers
-        .filter((p) => (p.selectionPercentage || 50) > 55)
-        .sort((a, b) => (b.formScore || 50) - (a.formScore || 50))
+      // Analyze all 22 players to create optimal Cricbuzz team
+      // Prioritize by quantum score and form score
+      const sortedByScore = [...enrichedTeamPlayers].sort((a, b) => {
+        const scoreA = (a.quantumScore || 50) * 0.6 + (a.formScore || 50) * 0.4
+        const scoreB = (b.quantumScore || 50) * 0.6 + (b.formScore || 50) * 0.4
+        return scoreB - scoreA
+      })
 
-      const popularCaptain = consistencyPlayers
-        .filter((p) => (p.selectionPercentage || 50) > 65)
-        .sort((a, b) => (b.quantumScore || 50) - (a.quantumScore || 50))[0]
+      // Select top 11 players with position distribution
+      const cricbuzzTeamPlayers: typeof enrichedTeamPlayers = []
+      const positionStats = { WK: 0, BAT: 0, ALL: 0, BOW: 0 }
+      const positionLimits = { WK: 4, BAT: 6, ALL: 6, BOW: 7 }
 
-      const popularViceCaptain = consistencyPlayers
-        .filter((p) => p.name !== popularCaptain?.name && (p.selectionPercentage || 50) > 60)
-        .sort((a, b) => (b.formScore || 50) - (a.formScore || 50))[0]
-
-      const team1Players: typeof enrichedPlayers = []
-      const team1Set = new Set<string>()
-
-      if (popularCaptain) {
-        team1Players.push(popularCaptain)
-        team1Set.add(popularCaptain.name)
-      }
-      if (popularViceCaptain) {
-        team1Players.push(popularViceCaptain)
-        team1Set.add(popularViceCaptain.name)
+      for (const player of sortedByScore) {
+        const role = player.role.toUpperCase()
+        if (cricbuzzTeamPlayers.length < 11 && (positionStats[role] || 0) < positionLimits[role]) {
+          cricbuzzTeamPlayers.push(player)
+          positionStats[role] = (positionStats[role] || 0) + 1
+        }
       }
 
-      const remainingConsistency = consistencyPlayers.filter((p) => !team1Set.has(p.name))
-      team1Players.push(...remainingConsistency.slice(0, 9))
-      remainingConsistency.slice(0, 9).forEach((p) => team1Set.add(p.name))
-
-      if (team1Players.length < 11) {
-        const others = enrichedPlayers.filter((p) => !team1Set.has(p.name)).slice(0, 11 - team1Players.length)
-        team1Players.push(...others)
-        others.forEach((p) => team1Set.add(p.name))
+      // If still less than 11, fill remaining slots
+      if (cricbuzzTeamPlayers.length < 11) {
+        const usedNames = new Set(cricbuzzTeamPlayers.map((p) => p.name))
+        const remaining = sortedByScore.filter((p) => !usedNames.has(p.name))
+        cricbuzzTeamPlayers.push(...remaining.slice(0, 11 - cricbuzzTeamPlayers.length))
       }
 
-      // Team 2 - Mega GL / High Risk
-      const megaGLCandidates = enrichedPlayers.filter((p) => !team1Set.has(p.name))
+      // Assign Captain and Vice Captain based on highest scores
+      const sortedByOverallScore = [...cricbuzzTeamPlayers].sort((a, b) => {
+        const scoreA = (a.quantumScore || 50) * 0.6 + (a.formScore || 50) * 0.4
+        const scoreB = (b.quantumScore || 50) * 0.6 + (b.formScore || 50) * 0.4
+        return scoreB - scoreA
+      })
 
-      const differentialPlayers = megaGLCandidates
-        .filter((p) => (p.selectionPercentage || 50) <= 50)
-        .sort((a, b) => (a.selectionPercentage || 50) - (b.selectionPercentage || 50))
+      const captain = sortedByOverallScore[0]?.name || cricbuzzTeamPlayers[0]?.name
+      const viceCaptain = sortedByOverallScore[1]?.name || cricbuzzTeamPlayers[1]?.name
 
-      const highUpsideCaptain = megaGLCandidates
-        .filter((p) => (p.quantumScore || 50) > 65 && (p.selectionPercentage || 50) <= 55)
-        .sort((a, b) => (b.quantumScore || 50) - (a.quantumScore || 50))[0]
+      // Generate analysis text
+      const topPerformers = sortedByOverallScore
+        .slice(0, 3)
+        .map((p) => p.name)
+        .join(", ")
+      const analysis = `Cricbuzz Analysis: Based on comprehensive analysis of both saved teams (Team 1 & Team 2), this optimized lineup prioritizes quantum scores and form data. Top Performers: ${topPerformers}. Strategy: Mix of high-consistency players with differential picks for maximum upside.`
 
-      const highUpsideViceCaptain = megaGLCandidates
-        .filter(
-          (p) =>
-            p.name !== highUpsideCaptain?.name && (p.quantumScore || 50) > 60 && (p.selectionPercentage || 50) <= 60,
-        )
-        .sort((a, b) => (b.quantumScore || 50) - (a.quantumScore || 50))[0]
-
-      const team2Players: typeof enrichedPlayers = []
-      const team2Set = new Set<string>()
-
-      if (highUpsideCaptain) {
-        team2Players.push(highUpsideCaptain)
-        team2Set.add(highUpsideCaptain.name)
-      }
-      if (highUpsideViceCaptain) {
-        team2Players.push(highUpsideViceCaptain)
-        team2Set.add(highUpsideViceCaptain.name)
-      }
-
-      team2Players.push(...differentialPlayers.slice(0, 9))
-      differentialPlayers.slice(0, 9).forEach((p) => team2Set.add(p.name))
-
-      if (team2Players.length < 11) {
-        const others = megaGLCandidates.filter((p) => !team2Set.has(p.name)).slice(0, 11 - team2Players.length)
-        team2Players.push(...others)
+      const cricbuzzTeam: CricbuzzTeam = {
+        id: "cricbuzz-" + Date.now(),
+        type: "CRICBUZZ",
+        players: cricbuzzTeamPlayers.map((p, idx) => ({
+          ...p,
+          position: idx + 1,
+          isCaptain: p.name === captain,
+          isViceCaptain: p.name === viceCaptain,
+        })),
+        totalCredits: cricbuzzTeamPlayers.reduce((sum, p) => sum + (p.credit || 0), 0),
+        lowSelectionCount: cricbuzzTeamPlayers.filter((p) => (p.selectionPercentage || 50) <= 50).length,
+        captain,
+        viceCaptain,
+        analysis,
       }
 
-      const assignCVC = (teamPlayers: typeof enrichedPlayers) => {
-        const sorted = [...teamPlayers].sort((a, b) => {
-          const scoreA = a.quantumScore || a.formScore || a.selectionPercentage || 50
-          const scoreB = b.quantumScore || b.formScore || b.selectionPercentage || 50
-          return scoreB - scoreA
-        })
-        const captain = sorted[0]?.name || teamPlayers[0]?.name
-        const viceCaptain = sorted[1]?.name || teamPlayers[1]?.name
-
-        return { captain, viceCaptain }
-      }
-
-      const team1CVC = assignCVC(team1Players)
-      const team2CVC = assignCVC(team2Players)
-
-      const generatedTeams: AITeam[] = [
-        {
-          id: "safe-" + Date.now(),
-          type: "SL",
-          players: team1Players.map((p, idx) => ({
-            ...p,
-            position: idx + 1,
-            isCaptain: p.name === team1CVC.captain,
-            isViceCaptain: p.name === team1CVC.viceCaptain,
-          })),
-          totalCredits: team1Players.reduce((sum, p) => sum + (p.credit || 0), 0),
-          lowSelectionCount: team1Players.filter((p) => (p.selectionPercentage || 50) <= 50).length,
-          captain: team1CVC.captain,
-          viceCaptain: team1CVC.viceCaptain,
-        },
-        {
-          id: "megagl-" + Date.now(),
-          type: "GL",
-          players: team2Players.map((p, idx) => ({
-            ...p,
-            position: idx + 1,
-            isCaptain: p.name === team2CVC.captain,
-            isViceCaptain: p.name === team2CVC.viceCaptain,
-          })),
-          totalCredits: team2Players.reduce((sum, p) => sum + (p.credit || 0), 0),
-          lowSelectionCount: team2Players.filter((p) => (p.selectionPercentage || 50) <= 50).length,
-          captain: team2CVC.captain,
-          viceCaptain: team2CVC.viceCaptain,
-        },
-      ]
-
-      setAiTeams(generatedTeams)
+      setAiTeams([cricbuzzTeam])
+      console.log("[v0] Generated Cricbuzz team from combined analysis of 22 players")
     } catch (error) {
-      console.error("[v0] Error generating AI teams:", error)
+      console.error("[v0] Error generating Cricbuzz team:", error)
+      alert("Error generating team. Please ensure teams are saved first.")
     } finally {
       setIsGeneratingTeams(false)
     }
@@ -403,6 +353,16 @@ export default function HomePage() {
               <Zap className="h-4 w-4 mr-2" />
               Start Team Generation
             </Button>
+
+            <Button
+              onClick={generateCricbuzzTeam}
+              disabled={isGeneratingTeams}
+              className="w-full bg-secondary hover:bg-secondary/80 text-secondary-foreground font-semibold"
+              size="lg"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              {isGeneratingTeams ? "Analyzing..." : "Cricbuzz Analysis Team"}
+            </Button>
           </div>
         )}
 
@@ -415,12 +375,8 @@ export default function HomePage() {
                     <div className="flex items-center gap-2">
                       <Brain className="h-5 w-5 text-primary" />
                       <div>
-                        <h3 className="font-bold">{team.type === "SL" ? "🎯 Safe Team" : "✨ Mega GL Team"}</h3>
-                        <p className="text-xs text-muted-foreground">
-                          {team.type === "SL"
-                            ? "High Consistency Players, Popular Captain & Vice-Captain, Balanced Credits, Low Risk"
-                            : "Differential Picks, Low Selection % Players, High Upside C/VC, Unique Combination"}
-                        </p>
+                        <h3 className="font-bold">🏏 Cricbuzz Analysis Team</h3>
+                        <p className="text-xs text-muted-foreground">Quantum AI Analysis (Team 1 + Team 2)</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -428,6 +384,9 @@ export default function HomePage() {
                       <p className="text-xs text-accent">Low: {team.lowSelectionCount}</p>
                     </div>
                   </div>
+
+                  {/* Analysis text */}
+                  <div className="mb-3 p-2 bg-muted rounded text-xs text-muted-foreground">{team.analysis}</div>
 
                   <div className="grid grid-cols-1 gap-2">
                     {team.players.map((player) => (
@@ -437,28 +396,21 @@ export default function HomePage() {
                       >
                         <div className="flex-1">
                           <p className="font-semibold">
-                            {player.position}. {player.name}{" "}
-                            {player.isCaptain && <span className="text-accent ml-1">👑 C</span>}
-                            {player.isViceCaptain && <span className="text-orange-500 ml-1">⭐ VC</span>}
+                            {player.position}. {player.name}
+                            {player.isCaptain && " 👑 (C)"}
+                            {player.isViceCaptain && " ⭐ (VC)"}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {player.role} • {player.selectionPercentage?.toFixed(1) || "0"}% selected
+                            {player.role} • {player.selectionPercentage || 50}% • {player.credit} Cr
                           </p>
-                        </div>
-                        <div className="text-right">
-                          <Badge variant="outline" className="bg-primary/10">
-                            {player.credit} Cr
-                          </Badge>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-border text-sm text-center">
-                    <p>
-                      Captain: <span className="font-bold text-accent">{team.captain}</span> | Vice Captain:{" "}
-                      <span className="font-bold text-orange-500">{team.viceCaptain}</span>
-                    </p>
+                  <div className="mt-3 flex gap-2 justify-between text-xs">
+                    <p className="text-muted-foreground">Captain: {team.captain}</p>
+                    <p className="text-muted-foreground">Vice Captain: {team.viceCaptain}</p>
                   </div>
                 </CardContent>
               </Card>
