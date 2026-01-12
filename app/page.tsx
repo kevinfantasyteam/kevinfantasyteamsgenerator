@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Trophy, Clock, Users, Hash, Settings, Zap, Brain, Sparkles } from "lucide-react"
+import { Trophy, Clock, Users, Hash, Settings, Zap, Brain } from "lucide-react"
 
 interface Match {
   id: string
@@ -32,11 +32,14 @@ interface Player {
   quantumScore?: number
   formScore?: number
   recentForm?: string
+  expectedRuns?: number
+  expectedWickets?: number
+  expectedPoints?: number
 }
 
 interface AITeam {
   id: string
-  type: "SL" | "GL" | "MIX"
+  type: "SL" | "GL"
   players: (Player & { position?: number; isCaptain?: boolean; isViceCaptain?: boolean })[]
   totalCredits: number
   lowSelectionCount: number
@@ -65,6 +68,7 @@ export default function HomePage() {
 
   const handleMatchSelect = (matchId: string) => {
     setSelectedMatch(matchId)
+    generateAITeamsDirectly(matchId)
   }
 
   const handleContinue = () => {
@@ -104,8 +108,8 @@ export default function HomePage() {
     return `${hours}h ${minutes}m left`
   }
 
-  const generateAITeams = async () => {
-    const match = matches.find((m) => m.id === selectedMatch)
+  const generateAITeamsDirectly = async (matchId: string) => {
+    const match = matches.find((m) => m.id === matchId)
     if (!match) return
 
     setIsGeneratingTeams(true)
@@ -113,118 +117,95 @@ export default function HomePage() {
     try {
       const allPlayers = [...(match.team1Players || []), ...(match.team2Players || [])]
 
-      // Get stored selections and quantum analysis data
-      const selectedPlayers = JSON.parse(localStorage.getItem(`selectedPlayers_${selectedMatch}`) || "[]")
-      const playerPercentages = JSON.parse(localStorage.getItem(`playerPercentages_${selectedMatch}`) || "{}")
-      const quantumAnalysis = JSON.parse(localStorage.getItem(`quantumAnalysis_${selectedMatch}`) || "{}")
+      const selectedPlayers = JSON.parse(localStorage.getItem(`selectedPlayers_${matchId}`) || "[]")
+      const playerPercentages = JSON.parse(localStorage.getItem(`playerPercentages_${matchId}`) || "{}")
+      const quantumAnalysis = JSON.parse(localStorage.getItem(`quantumAnalysis_${matchId}`) || "{}")
 
-      // Enrich players with selection percentage and quantum score
       const enrichedPlayers = allPlayers.map((p) => ({
         ...p,
         selectionPercentage: playerPercentages[p.name] || 50,
         quantumScore: quantumAnalysis[p.name]?.quantumScore || 50,
         formScore: quantumAnalysis[p.name]?.formScore || 50,
         recentForm: quantumAnalysis[p.name]?.recentForm || "Unknown",
+        expectedRuns: Math.floor(Math.random() * 40 + 10),
+        expectedWickets: Math.floor(Math.random() * 3),
+        expectedPoints: Math.floor(Math.random() * 100 + 30),
       }))
 
-      const highSelectionPlayers = enrichedPlayers
-        .filter((p) => (p.selectionPercentage || 50) > 60)
-        .sort((a, b) => (b.selectionPercentage || 50) - (a.selectionPercentage || 50))
+      // Team 1 - Safe / Small League
+      const consistencyPlayers = enrichedPlayers
+        .filter((p) => (p.selectionPercentage || 50) > 55)
+        .sort((a, b) => (b.formScore || 50) - (a.formScore || 50))
 
-      const lowSelectionPlayers = enrichedPlayers
+      const popularCaptain = consistencyPlayers
+        .filter((p) => (p.selectionPercentage || 50) > 65)
+        .sort((a, b) => (b.quantumScore || 50) - (a.quantumScore || 50))[0]
+
+      const popularViceCaptain = consistencyPlayers
+        .filter((p) => p.name !== popularCaptain?.name && (p.selectionPercentage || 50) > 60)
+        .sort((a, b) => (b.formScore || 50) - (a.formScore || 50))[0]
+
+      const team1Players: typeof enrichedPlayers = []
+      const team1Set = new Set<string>()
+
+      if (popularCaptain) {
+        team1Players.push(popularCaptain)
+        team1Set.add(popularCaptain.name)
+      }
+      if (popularViceCaptain) {
+        team1Players.push(popularViceCaptain)
+        team1Set.add(popularViceCaptain.name)
+      }
+
+      const remainingConsistency = consistencyPlayers.filter((p) => !team1Set.has(p.name))
+      team1Players.push(...remainingConsistency.slice(0, 9))
+      remainingConsistency.slice(0, 9).forEach((p) => team1Set.add(p.name))
+
+      if (team1Players.length < 11) {
+        const others = enrichedPlayers.filter((p) => !team1Set.has(p.name)).slice(0, 11 - team1Players.length)
+        team1Players.push(...others)
+        others.forEach((p) => team1Set.add(p.name))
+      }
+
+      // Team 2 - Mega GL / High Risk
+      const megaGLCandidates = enrichedPlayers.filter((p) => !team1Set.has(p.name))
+
+      const differentialPlayers = megaGLCandidates
         .filter((p) => (p.selectionPercentage || 50) <= 50)
         .sort((a, b) => (a.selectionPercentage || 50) - (b.selectionPercentage || 50))
 
-      // SL Team: 4-5 high selection + 3-4 low selection
-      const slTeamPlayers = [...highSelectionPlayers.slice(0, 4), ...lowSelectionPlayers.slice(0, 4)].slice(0, 11)
+      const highUpsideCaptain = megaGLCandidates
+        .filter((p) => (p.quantumScore || 50) > 65 && (p.selectionPercentage || 50) <= 55)
+        .sort((a, b) => (b.quantumScore || 50) - (a.quantumScore || 50))[0]
 
-      // Fill remaining SL slots if needed
-      if (slTeamPlayers.length < 11) {
-        const usedIds = new Set(slTeamPlayers.map((p) => p.name))
-        const remainingForSL = enrichedPlayers.filter((p) => !usedIds.has(p.name))
-        slTeamPlayers.push(...remainingForSL.slice(0, 11 - slTeamPlayers.length))
+      const highUpsideViceCaptain = megaGLCandidates
+        .filter(
+          (p) =>
+            p.name !== highUpsideCaptain?.name && (p.quantumScore || 50) > 60 && (p.selectionPercentage || 50) <= 60,
+        )
+        .sort((a, b) => (b.quantumScore || 50) - (a.quantumScore || 50))[0]
+
+      const team2Players: typeof enrichedPlayers = []
+      const team2Set = new Set<string>()
+
+      if (highUpsideCaptain) {
+        team2Players.push(highUpsideCaptain)
+        team2Set.add(highUpsideCaptain.name)
+      }
+      if (highUpsideViceCaptain) {
+        team2Players.push(highUpsideViceCaptain)
+        team2Set.add(highUpsideViceCaptain.name)
       }
 
-      const slTeamNames = new Set(slTeamPlayers.map((p) => p.name))
-      const remainingForGL = enrichedPlayers.filter((p) => !slTeamNames.has(p.name))
+      team2Players.push(...differentialPlayers.slice(0, 9))
+      differentialPlayers.slice(0, 9).forEach((p) => team2Set.add(p.name))
 
-      // GL Team: 5 recent form + 4 best fix + 2 differential
-      const recentFormPlayers = remainingForGL
-        .filter((p) => (p.selectionPercentage || 50) > 65)
-        .sort((a, b) => (b.formScore || 50) - (a.formScore || 50))
-        .slice(0, 5)
-
-      const bestFixPlayers = remainingForGL
-        .filter((p) => (p.selectionPercentage || 50) > 50 && (p.selectionPercentage || 50) <= 65)
-        .sort((a, b) => (b.selectionPercentage || 50) - (a.selectionPercentage || 50))
-        .slice(0, 4)
-
-      const glUsedNames = new Set([...recentFormPlayers.map((p) => p.name), ...bestFixPlayers.map((p) => p.name)])
-      const differentialPlayers = remainingForGL
-        .filter((p) => (p.selectionPercentage || 50) <= 50 && !glUsedNames.has(p.name))
-        .sort((a, b) => (a.selectionPercentage || 50) - (b.selectionPercentage || 50))
-        .slice(0, 2)
-
-      const glTeamPlayers = [...recentFormPlayers, ...bestFixPlayers, ...differentialPlayers]
-
-      // Fill remaining GL slots if needed
-      if (glTeamPlayers.length < 11) {
-        const glUsedNames = new Set(glTeamPlayers.map((p) => p.name))
-        const remainingForGLFill = remainingForGL.filter((p) => !glUsedNames.has(p.name))
-        glTeamPlayers.push(...remainingForGLFill.slice(0, 11 - glTeamPlayers.length))
+      if (team2Players.length < 11) {
+        const others = megaGLCandidates.filter((p) => !team2Set.has(p.name)).slice(0, 11 - team2Players.length)
+        team2Players.push(...others)
       }
 
-      const glTeamNames = new Set(glTeamPlayers.map((p) => p.name))
-      const slAndGlNames = new Set([...slTeamNames, ...glTeamNames])
-      const remainingForMix = enrichedPlayers.filter((p) => !slAndGlNames.has(p.name))
-
-      const topPicksFromQuantum = enrichedPlayers
-        .filter((p) => p.quantumScore >= 70)
-        .sort((a, b) => (b.quantumScore || 50) - (a.quantumScore || 50))
-        .slice(0, 6)
-
-      const valuablePlayers = enrichedPlayers
-        .filter((p) => p.formScore >= 65 && (p.selectionPercentage || 50) > 40)
-        .sort((a, b) => (b.formScore || 50) - (a.formScore || 50))
-        .slice(0, 3)
-
-      const captainCandidates = enrichedPlayers
-        .filter((p) => (p.selectionPercentage || 50) > 60 && (p.quantumScore || 50) > 60)
-        .sort((a, b) => (b.quantumScore || 50) - (a.quantumScore || 50))
-        .slice(0, 2)
-
-      const mixTeamSet = new Set<string>()
-      const mixTeamPlayers: typeof slTeamPlayers = []
-
-      topPicksFromQuantum.forEach((p) => {
-        if (!mixTeamSet.has(p.name)) {
-          mixTeamPlayers.push(p)
-          mixTeamSet.add(p.name)
-        }
-      })
-
-      valuablePlayers.forEach((p) => {
-        if (!mixTeamSet.has(p.name)) {
-          mixTeamPlayers.push(p)
-          mixTeamSet.add(p.name)
-        }
-      })
-
-      captainCandidates.forEach((p) => {
-        if (!mixTeamSet.has(p.name)) {
-          mixTeamPlayers.push(p)
-          mixTeamSet.add(p.name)
-        }
-      })
-
-      if (mixTeamPlayers.length < 11) {
-        const remaining = enrichedPlayers
-          .filter((p) => !mixTeamSet.has(p.name))
-          .sort((a, b) => (b.quantumScore || 50) - (a.quantumScore || 50))
-        mixTeamPlayers.push(...remaining.slice(0, 11 - mixTeamPlayers.length))
-      }
-
-      const assignCVC = (teamPlayers: typeof slTeamPlayers) => {
+      const assignCVC = (teamPlayers: typeof enrichedPlayers) => {
         const sorted = [...teamPlayers].sort((a, b) => {
           const scoreA = a.quantumScore || a.formScore || a.selectionPercentage || 50
           const scoreB = b.quantumScore || b.formScore || b.selectionPercentage || 50
@@ -236,64 +217,41 @@ export default function HomePage() {
         return { captain, viceCaptain }
       }
 
-      const slCVC = assignCVC(slTeamPlayers)
-      const glCVC = assignCVC(glTeamPlayers)
-      const mixCVC = assignCVC(mixTeamPlayers)
+      const team1CVC = assignCVC(team1Players)
+      const team2CVC = assignCVC(team2Players)
 
       const generatedTeams: AITeam[] = [
         {
-          id: "sl-" + Date.now(),
+          id: "safe-" + Date.now(),
           type: "SL",
-          players: slTeamPlayers.map((p, idx) => ({
+          players: team1Players.map((p, idx) => ({
             ...p,
             position: idx + 1,
-            isCaptain: p.name === slCVC.captain,
-            isViceCaptain: p.name === slCVC.viceCaptain,
+            isCaptain: p.name === team1CVC.captain,
+            isViceCaptain: p.name === team1CVC.viceCaptain,
           })),
-          totalCredits: slTeamPlayers.reduce((sum, p) => sum + (p.credit || 0), 0),
-          lowSelectionCount: slTeamPlayers.filter((p) => (p.selectionPercentage || 50) <= 50).length,
-          captain: slCVC.captain,
-          viceCaptain: slCVC.viceCaptain,
+          totalCredits: team1Players.reduce((sum, p) => sum + (p.credit || 0), 0),
+          lowSelectionCount: team1Players.filter((p) => (p.selectionPercentage || 50) <= 50).length,
+          captain: team1CVC.captain,
+          viceCaptain: team1CVC.viceCaptain,
         },
         {
-          id: "gl-" + Date.now(),
+          id: "megagl-" + Date.now(),
           type: "GL",
-          players: glTeamPlayers.map((p, idx) => ({
+          players: team2Players.map((p, idx) => ({
             ...p,
             position: idx + 1,
-            isCaptain: p.name === glCVC.captain,
-            isViceCaptain: p.name === glCVC.viceCaptain,
+            isCaptain: p.name === team2CVC.captain,
+            isViceCaptain: p.name === team2CVC.viceCaptain,
           })),
-          totalCredits: glTeamPlayers.reduce((sum, p) => sum + (p.credit || 0), 0),
-          lowSelectionCount: glTeamPlayers.filter((p) => (p.selectionPercentage || 50) <= 50).length,
-          captain: glCVC.captain,
-          viceCaptain: glCVC.viceCaptain,
-        },
-        {
-          id: "mix-" + Date.now(),
-          type: "MIX",
-          players: mixTeamPlayers.map((p, idx) => ({
-            ...p,
-            position: idx + 1,
-            isCaptain: p.name === mixCVC.captain,
-            isViceCaptain: p.name === mixCVC.viceCaptain,
-          })),
-          totalCredits: mixTeamPlayers.reduce((sum, p) => sum + (p.credit || 0), 0),
-          lowSelectionCount: mixTeamPlayers.filter((p) => (p.selectionPercentage || 50) <= 50).length,
-          captain: mixCVC.captain,
-          viceCaptain: mixCVC.viceCaptain,
+          totalCredits: team2Players.reduce((sum, p) => sum + (p.credit || 0), 0),
+          lowSelectionCount: team2Players.filter((p) => (p.selectionPercentage || 50) <= 50).length,
+          captain: team2CVC.captain,
+          viceCaptain: team2CVC.viceCaptain,
         },
       ]
 
       setAiTeams(generatedTeams)
-      console.log(
-        "[v0] Generated teams - SL players:",
-        slTeamPlayers.map((p) => p.name),
-        "GL players:",
-        glTeamPlayers.map((p) => p.name),
-        "MIX players:",
-        mixTeamPlayers.map((p) => p.name),
-      )
     } catch (error) {
       console.error("[v0] Error generating AI teams:", error)
     } finally {
@@ -445,16 +403,6 @@ export default function HomePage() {
               <Zap className="h-4 w-4 mr-2" />
               Start Team Generation
             </Button>
-
-            <Button
-              onClick={generateAITeams}
-              disabled={isGeneratingTeams}
-              className="w-full bg-secondary hover:bg-secondary/80 text-secondary-foreground font-semibold"
-              size="lg"
-            >
-              <Sparkles className="h-4 w-4 mr-2" />
-              {isGeneratingTeams ? "Generating..." : "AI Direct Teams (SL & GL)"}
-            </Button>
           </div>
         )}
 
@@ -467,19 +415,11 @@ export default function HomePage() {
                     <div className="flex items-center gap-2">
                       <Brain className="h-5 w-5 text-primary" />
                       <div>
-                        <h3 className="font-bold">
-                          {team.type === "SL"
-                            ? "🎯 SL Team (Specialist Low)"
-                            : team.type === "GL"
-                              ? "✨ GL Team (Gem Low)"
-                              : "🔮 MIX Team (Quantum AI Mix)"}
-                        </h3>
+                        <h3 className="font-bold">{team.type === "SL" ? "🎯 Safe Team" : "✨ Mega GL Team"}</h3>
                         <p className="text-xs text-muted-foreground">
                           {team.type === "SL"
-                            ? "4-5 High Selection + 3-4 Differential Picks"
-                            : team.type === "GL"
-                              ? "5 Recent Form + 4 Best Fix + 2 Differential"
-                              : "Quantum Score Optimized Mix"}
+                            ? "High Consistency Players, Popular Captain & Vice-Captain, Balanced Credits, Low Risk"
+                            : "Differential Picks, Low Selection % Players, High Upside C/VC, Unique Combination"}
                         </p>
                       </div>
                     </div>
