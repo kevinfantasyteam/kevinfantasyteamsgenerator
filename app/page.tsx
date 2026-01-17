@@ -112,98 +112,35 @@ export default function HomePage() {
     setIsGeneratingTeams(true)
 
     try {
-      // Load saved Team 1 and Team 2 from localStorage
-      const team1Data = JSON.parse(localStorage.getItem(`team1_${selectedMatch}`) || "[]")
-      const team2Data = JSON.parse(localStorage.getItem(`team2_${selectedMatch}`) || "[]")
+      const allPlayers = [...(match.team1Players || []), ...(match.team2Players || [])]
 
-      // Combine all players from both teams (22 players)
-      const allTeamPlayers = [...team1Data, ...team2Data]
-
-      if (allTeamPlayers.length === 0) {
-        alert("No saved teams found. Please generate teams first in Team Generation flow.")
+      if (allPlayers.length === 0) {
+        alert("No players found in match. Please check match data.")
         setIsGeneratingTeams(false)
         return
       }
 
-      // Get stored selection and quantum data
-      const playerPercentages = JSON.parse(localStorage.getItem(`playerPercentages_${selectedMatch}`) || "{}")
-      const quantumAnalysis = JSON.parse(localStorage.getItem(`quantumAnalysis_${selectedMatch}`) || "{}")
-
-      // Enrich combined team players with analysis data
-      const enrichedTeamPlayers = allTeamPlayers.map((p) => ({
-        ...p,
-        selectionPercentage: playerPercentages[p.name] || p.selectionPercentage || 50,
-        quantumScore: quantumAnalysis[p.name]?.quantumScore || p.quantumScore || 50,
-        formScore: quantumAnalysis[p.name]?.formScore || p.formScore || 50,
-        recentForm: quantumAnalysis[p.name]?.recentForm || p.recentForm || "Unknown",
-      }))
-
-      // Analyze all 22 players to create optimal Cricbuzz team
-      // Prioritize by quantum score and form score
-      const sortedByScore = [...enrichedTeamPlayers].sort((a, b) => {
-        const scoreA = (a.quantumScore || 50) * 0.6 + (a.formScore || 50) * 0.4
-        const scoreB = (b.quantumScore || 50) * 0.6 + (b.formScore || 50) * 0.4
-        return scoreB - scoreA
+      const response = await fetch("/api/cricbuzz-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          matchId: selectedMatch,
+          players: allPlayers,
+          team1Name: match.teamName1,
+          team2Name: match.teamName2,
+        }),
       })
 
-      // Select top 11 players with position distribution
-      const cricbuzzTeamPlayers: typeof enrichedTeamPlayers = []
-      const positionStats = { WK: 0, BAT: 0, ALL: 0, BOW: 0 }
-      const positionLimits = { WK: 4, BAT: 6, ALL: 6, BOW: 7 }
-
-      for (const player of sortedByScore) {
-        const role = player.role.toUpperCase()
-        if (cricbuzzTeamPlayers.length < 11 && (positionStats[role] || 0) < positionLimits[role]) {
-          cricbuzzTeamPlayers.push(player)
-          positionStats[role] = (positionStats[role] || 0) + 1
-        }
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.details || errorData.error || "Failed to generate team")
       }
 
-      // If still less than 11, fill remaining slots
-      if (cricbuzzTeamPlayers.length < 11) {
-        const usedNames = new Set(cricbuzzTeamPlayers.map((p) => p.name))
-        const remaining = sortedByScore.filter((p) => !usedNames.has(p.name))
-        cricbuzzTeamPlayers.push(...remaining.slice(0, 11 - cricbuzzTeamPlayers.length))
-      }
-
-      // Assign Captain and Vice Captain based on highest scores
-      const sortedByOverallScore = [...cricbuzzTeamPlayers].sort((a, b) => {
-        const scoreA = (a.quantumScore || 50) * 0.6 + (a.formScore || 50) * 0.4
-        const scoreB = (b.quantumScore || 50) * 0.6 + (b.formScore || 50) * 0.4
-        return scoreB - scoreA
-      })
-
-      const captain = sortedByOverallScore[0]?.name || cricbuzzTeamPlayers[0]?.name
-      const viceCaptain = sortedByOverallScore[1]?.name || cricbuzzTeamPlayers[1]?.name
-
-      // Generate analysis text
-      const topPerformers = sortedByOverallScore
-        .slice(0, 3)
-        .map((p) => p.name)
-        .join(", ")
-      const analysis = `Cricbuzz Analysis: Based on comprehensive analysis of both saved teams (Team 1 & Team 2), this optimized lineup prioritizes quantum scores and form data. Top Performers: ${topPerformers}. Strategy: Mix of high-consistency players with differential picks for maximum upside.`
-
-      const cricbuzzTeam: CricbuzzTeam = {
-        id: "cricbuzz-" + Date.now(),
-        type: "CRICBUZZ",
-        players: cricbuzzTeamPlayers.map((p, idx) => ({
-          ...p,
-          position: idx + 1,
-          isCaptain: p.name === captain,
-          isViceCaptain: p.name === viceCaptain,
-        })),
-        totalCredits: cricbuzzTeamPlayers.reduce((sum, p) => sum + (p.credit || 0), 0),
-        lowSelectionCount: cricbuzzTeamPlayers.filter((p) => (p.selectionPercentage || 50) <= 50).length,
-        captain,
-        viceCaptain,
-        analysis,
-      }
-
+      const { team: cricbuzzTeam } = await response.json()
       setAiTeams([cricbuzzTeam])
-      console.log("[v0] Generated Cricbuzz team from combined analysis of 22 players")
     } catch (error) {
       console.error("[v0] Error generating Cricbuzz team:", error)
-      alert("Error generating team. Please ensure teams are saved first.")
+      alert("Error generating team: " + (error instanceof Error ? error.message : "Unknown error"))
     } finally {
       setIsGeneratingTeams(false)
     }
